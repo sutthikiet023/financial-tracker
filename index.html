@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>แอปบันทึกรายรับ-รายจ่าย</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -15,6 +15,16 @@
         .inter {
             font-family: 'Inter', sans-serif;
         }
+        .prose h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .prose li {
+            margin-left: 1.25rem;
+            list-style-type: disc;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -24,7 +34,7 @@
         <!-- Auth Container -->
         <div id="auth-container" class="max-w-md mx-auto mt-10">
             <div class="bg-white p-8 rounded-xl shadow-md">
-                <h2 class="text-2xl font-bold text-center mb-6">เข้าสู่ระบบ / สมัครสมาชิก</h2>
+                <h2 class="text-2xl font-bold text-center mb-6">เข้าสู่ระบบ</h2>
                 <div id="auth-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert"></div>
                 <form id="auth-form">
                     <div class="mb-4">
@@ -68,7 +78,7 @@
             
             <!-- Filters and Actions -->
             <section class="bg-white p-4 rounded-xl shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-4 flex-wrap">
                      <div id="view-toggle" class="flex rounded-lg bg-gray-200 p-1">
                         <button id="monthly-view-btn" class="px-4 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md shadow">รายเดือน</button>
                         <button id="yearly-view-btn" class="px-4 py-1 text-sm font-medium text-gray-600 rounded-md">รายปี</button>
@@ -82,7 +92,10 @@
                         <select id="year-filter" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                     </div>
                 </div>
-                <button id="manage-categories-btn" class="w-full md:w-auto bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300">จัดการหมวดหมู่</button>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <button id="get-ai-insight-btn" class="w-full md:w-auto bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition duration-300 text-sm">วิเคราะห์ด้วย AI</button>
+                    <button id="manage-categories-btn" class="w-full md:w-auto bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">จัดการหมวดหมู่</button>
+                </div>
             </section>
             
             <!-- Yearly Summary View -->
@@ -156,20 +169,16 @@
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">จัดการหมวดหมู่</h3>
                     
-                    <form id="add-category-form" class="flex gap-2 mb-4">
-                         <input type="text" id="new-category-name" placeholder="ชื่อหมวดหมู่ใหม่" class="flex-grow focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" required>
-                         <select id="new-category-type" class="focus:ring-indigo-500 focus:border-indigo-500 shadow-sm sm:text-sm border-gray-300 rounded-md">
-                            <option value="income">รายรับ</option>
-                            <option value="expense">รายจ่าย</option>
-                         </select>
-                         <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700">เพิ่ม</button>
-                    </form>
+                    <div class="flex gap-2 mb-4">
+                        <button id="add-income-category-btn" class="w-full bg-green-500 text-white px-3 py-2 rounded-md hover:bg-green-600 text-sm">เพิ่มหมวดรับหลัก</button>
+                        <button id="add-expense-category-btn" class="w-full bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600 text-sm">เพิ่มหมวดจ่ายหลัก</button>
+                    </div>
 
-                    <div class="max-h-60 overflow-y-auto">
-                        <h4 class="font-semibold mt-4">หมวดหมู่รายรับ</h4>
-                        <ul id="income-categories-list" class="divide-y divide-gray-200"></ul>
-                        <h4 class="font-semibold mt-4">หมวดหมู่รายจ่าย</h4>
-                        <ul id="expense-categories-list" class="divide-y divide-gray-200"></ul>
+                    <div class="max-h-80 overflow-y-auto p-2 border rounded-md">
+                        <h4 class="font-semibold mt-2 text-green-700">หมวดหมู่รายรับ</h4>
+                        <div id="income-categories-list" class="ml-2"></div>
+                        <h4 class="font-semibold mt-4 text-red-700">หมวดหมู่รายจ่าย</h4>
+                        <div id="expense-categories-list" class="ml-2"></div>
                     </div>
                 </div>
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
@@ -213,6 +222,43 @@
         </div>
     </div>
 
+    <!-- AI Insight Modal -->
+    <div id="ai-insight-modal" class="hidden fixed z-20 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.293 2.293a1 1 0 010 1.414L11 15.414l-2.293-2.293a1 1 0 010-1.414L11 9.414V3m0 18v-2.293a1 1 0 01.293-.707L15 11.414l-2.293-2.293a1 1 0 01-.707-.293V3.414m5 16l2.293-2.293a1 1 0 000-1.414L15 11.414l2.293 2.293a1 1 0 001.414 0L21 11.414V17m0-14v2.293a1 1 0 00.293.707L15 11.414l2.293 2.293a1 1 0 00.707.293H21M4 9h2v2H4V9zm13 0h2v2h-2V9z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                บทวิเคราะห์การเงินโดย AI
+                            </h3>
+                            <div class="mt-4" id="ai-insight-content-wrapper">
+                                <div id="ai-insight-loader" class="text-center p-4">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                                    <p class="mt-2 text-sm text-gray-500">กำลังวิเคราะห์ข้อมูล... กรุณารอสักครู่</p>
+                                </div>
+                                <div id="ai-insight-content" class="text-sm text-gray-600 prose" style="white-space: pre-wrap;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="close-ai-insight-modal" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <script type="module">
         // --- SUPABASE SETUP ---
         const SUPABASE_URL = 'https://gipaqbwkdlolawfojozy.supabase.co';
@@ -220,7 +266,41 @@
         
         // --- SQL for Supabase Table Setup ---
         /*
-        -- ... (SQL code is the same, no changes needed) ...
+        -- 1. Create categories table WITH parent_id
+        CREATE TABLE categories (
+          id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          name TEXT NOT NULL,
+          type TEXT NOT NULL, -- 'income' or 'expense'
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+          parent_id BIGINT REFERENCES categories(id) ON DELETE CASCADE -- Self-referencing for sub-categories
+        );
+        -- Enable Row Level Security (RLS)
+        ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+        -- Create policies
+        CREATE POLICY "Users can manage their own categories"
+          ON categories FOR ALL
+          USING (auth.uid() = user_id)
+          WITH CHECK (auth.uid() = user_id);
+
+        -- 2. Create transactions table (no changes here)
+        CREATE TABLE transactions (
+          id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          date DATE NOT NULL,
+          description TEXT,
+          amount NUMERIC NOT NULL,
+          type TEXT NOT NULL, -- 'income' or 'expense'
+          category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+        );
+        -- Enable Row Level Security (RLS)
+        ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+        -- Create policies
+        CREATE POLICY "Users can manage their own transactions"
+          ON transactions FOR ALL
+          USING (auth.uid() = user_id)
+          WITH CHECK (auth.uid() = user_id);
         */
 
         const { createClient } = supabase;
@@ -257,7 +337,8 @@
         const manageCategoriesBtn = document.getElementById('manage-categories-btn');
         const categoryModal = document.getElementById('category-modal');
         const closeCategoryModalBtn = document.getElementById('close-category-modal');
-        const addCategoryForm = document.getElementById('add-category-form');
+        const addIncomeCategoryBtn = document.getElementById('add-income-category-btn');
+        const addExpenseCategoryBtn = document.getElementById('add-expense-category-btn');
         const incomeCategoriesList = document.getElementById('income-categories-list');
         const expenseCategoriesList = document.getElementById('expense-categories-list');
         
@@ -269,12 +350,18 @@
         const editDate = document.getElementById('edit-date');
         const editDescription = document.getElementById('edit-description');
 
+        const getAiInsightBtn = document.getElementById('get-ai-insight-btn');
+        const aiInsightModal = document.getElementById('ai-insight-modal');
+        const closeAiInsightModalBtn = document.getElementById('close-ai-insight-modal');
+        const aiInsightLoader = document.getElementById('ai-insight-loader');
+        const aiInsightContent = document.getElementById('ai-insight-content');
+
         let currentUser = null;
         let currentView = 'monthly';
         let yearlyChartInstance = null;
+        let allCategoriesMap = new Map();
 
         // --- Authentication ---
-        
         function showAuthError(message) {
             authError.textContent = message;
             authError.classList.remove('hidden');
@@ -288,9 +375,7 @@
             if (error) { showAuthError(error.message); }
         });
         
-        logoutBtn.addEventListener('click', async () => {
-            await db.auth.signOut();
-        });
+        logoutBtn.addEventListener('click', async () => { await db.auth.signOut(); });
 
         db.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
@@ -301,11 +386,84 @@
                 initializeApp();
             } else {
                 currentUser = null;
+                allCategoriesMap.clear();
                 authContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
             }
         });
+
+        // --- Gemini API ---
+        async function callGemini(prompt, retries = 3, delay = 1000) {
+            const apiKey = ""; // Provided by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `คุณคือผู้ช่วยทางการเงินที่เป็นมิตรและเชี่ยวชาญ
+            - วิเคราะห์ข้อมูลรายรับรายจ่ายที่ผู้ใช้ให้มา
+            - สรุปพฤติกรรมการใช้จ่ายที่สำคัญในรูปแบบที่เข้าใจง่าย
+            - ให้คำแนะนำทางการเงินที่นำไปใช้ได้จริง 2-3 ข้อ โดยอิงจากข้อมูล
+            - ตอบเป็นภาษาไทยเท่านั้น
+            - จัดรูปแบบคำตอบโดยใช้ Markdown headings เช่น '## สรุปภาพรวม' และ '## คำแนะนำ' และใช้ bullet points (*) สำหรับรายการต่างๆ`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        return candidate.content.parts[0].text;
+                    } else {
+                        throw new Error('Invalid response structure from Gemini API');
+                    }
+                } catch (error) {
+                    console.error(`Gemini API call attempt ${i + 1} failed:`, error);
+                    if (i === retries - 1) { // Last retry
+                        return "ขออภัยค่ะ เกิดข้อผิดพลาดในการติดต่อกับ AI โปรดลองใหม่อีกครั้ง";
+                    }
+                    await new Promise(res => setTimeout(res, delay * Math.pow(2, i))); // Exponential backoff
+                }
+            }
+        }
+
+        function formatForAI(transactions) {
+            let incomeStr = "รายรับ:\n";
+            let expenseStr = "รายจ่าย:\n";
+            let incomeCount = 0;
+            let expenseCount = 0;
+
+            transactions.forEach(tx => {
+                const categoryName = getCategoryFullName(tx.category_id);
+                const item = `- ${categoryName}: ${parseFloat(tx.amount).toFixed(2)} บาท (${tx.description || 'ไม่มีคำอธิบาย'})\n`;
+                if (tx.type === 'income') {
+                    incomeStr += item;
+                    incomeCount++;
+                } else {
+                    expenseStr += item;
+                    expenseCount++;
+                }
+            });
+
+            if (incomeCount === 0) incomeStr += "- ไม่มี\n";
+            if (expenseCount === 0) expenseStr += "- ไม่มี\n";
+
+            return incomeStr + "\n" + expenseStr;
+        }
+
 
         // --- View Management ---
         function setView(view) {
@@ -315,7 +473,6 @@
                 monthlyViewBtn.classList.remove('text-gray-600');
                 yearlyViewBtn.classList.add('text-gray-600');
                 yearlyViewBtn.classList.remove('bg-indigo-600', 'text-white', 'shadow');
-
                 monthlyViewContainer.classList.remove('hidden');
                 yearlySummarySection.classList.add('hidden');
                 monthFilterContainer.classList.remove('hidden');
@@ -324,7 +481,6 @@
                 yearlyViewBtn.classList.remove('text-gray-600');
                 monthlyViewBtn.classList.add('text-gray-600');
                 monthlyViewBtn.classList.remove('bg-indigo-600', 'text-white', 'shadow');
-
                 monthlyViewContainer.classList.add('hidden');
                 yearlySummarySection.classList.remove('hidden');
                 monthFilterContainer.classList.add('hidden');
@@ -335,25 +491,37 @@
         monthlyViewBtn.addEventListener('click', () => setView('monthly'));
         yearlyViewBtn.addEventListener('click', () => setView('yearly'));
 
-
         // --- Data Fetching and Rendering ---
-        async function fetchCategories() {
-            if (!currentUser) return { income: [], expense: [] };
+        function structureCategories(categories) {
+            const structured = [];
+            const map = new Map(categories.map(c => [c.id, {...c, subcategories: []}]));
+            
+            for (const category of map.values()) {
+                if (category.parent_id) {
+                    map.get(category.parent_id)?.subcategories.push(category);
+                } else {
+                    structured.push(category);
+                }
+            }
+            return structured;
+        }
+
+        async function fetchAllCategories() {
+            if (!currentUser) return [];
             const { data, error } = await db.from('categories').select('*').eq('user_id', currentUser.id).order('name');
             if (error) {
-                console.error('Error fetching categories:', error);
-                return { income: [], expense: [] };
+                console.error('Error fetching all categories:', error);
+                return [];
             }
-            const income = data.filter(c => c.type === 'income');
-            const expense = data.filter(c => c.type === 'expense');
-            return { income, expense };
+            allCategoriesMap = new Map(data.map(c => [c.id, c]));
+            return data;
         }
 
         async function fetchTransactions(year, month) {
             if (!currentUser) return [];
             const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
             const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-            const { data, error } = await db.from('transactions').select('*, categories ( name )').eq('user_id', currentUser.id).gte('date', startDate).lte('date', endDate).order('date', { ascending: false });
+            const { data, error } = await db.from('transactions').select('*, category_id').eq('user_id', currentUser.id).gte('date', startDate).lte('date', endDate).order('date', { ascending: false });
             if (error) { console.error('Error fetching transactions:', error); return []; }
             return data;
         }
@@ -366,24 +534,65 @@
             if (error) { console.error('Error fetching yearly transactions:', error); return []; }
             return data;
         }
-
-        async function renderCategories() {
-            const { income, expense } = await fetchCategories();
-            const selectedType = document.querySelector('input[name="type"]:checked').value;
-            categorySelect.innerHTML = '';
-            const categoriesForType = selectedType === 'income' ? income : expense;
-            categoriesForType.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.id;
-                option.textContent = cat.name;
-                categorySelect.appendChild(option);
+        
+        function renderCategoryDropdown(structuredCategories, type) {
+            categorySelect.innerHTML = '<option value="">-- เลือกหมวดหมู่ --</option>';
+            const categoriesForType = structuredCategories.filter(c => c.type === type);
+            
+            categoriesForType.forEach(mainCat => {
+                const mainOption = document.createElement('option');
+                mainOption.value = mainCat.id;
+                mainOption.textContent = mainCat.name;
+                categorySelect.appendChild(mainOption);
+                
+                mainCat.subcategories.forEach(subCat => {
+                    const subOption = document.createElement('option');
+                    subOption.value = subCat.id;
+                    subOption.textContent = `  - ${subCat.name}`;
+                    categorySelect.appendChild(subOption);
+                });
             });
-            incomeCategoriesList.innerHTML = income.map(cat => categoryListItemHTML(cat)).join('');
-            expenseCategoriesList.innerHTML = expense.map(cat => categoryListItemHTML(cat)).join('');
+        }
+        
+        function categoryListItemHTML(category, isSub = false) {
+             const subCategoryList = category.subcategories.map(sub => categoryListItemHTML(sub, true)).join('');
+            return `
+                <div class="${isSub ? 'ml-4' : ''} py-1 group">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${category.name}</span>
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button data-action="edit" data-id="${category.id}" class="text-xs text-blue-600 hover:text-blue-800 p-1">แก้ไข</button>
+                            <button data-action="delete" data-id="${category.id}" class="text-xs text-red-600 hover:text-red-800 p-1">ลบ</button>
+                            ${!isSub ? `<button data-action="add-sub" data-id="${category.id}" class="text-xs text-green-600 hover:text-green-800 p-1">เพิ่มย่อย</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="border-l-2 border-gray-200 pl-2">${subCategoryList}</div>
+                </div>
+            `;
         }
 
-        function categoryListItemHTML(category) {
-            return `<li data-id="${category.id}" class="py-2 flex justify-between items-center"><span>${category.name}</span><button class="delete-category-btn text-red-500 hover:text-red-700 text-sm">ลบ</button></li>`;
+        async function renderCategoriesUI() {
+            const allCategories = await fetchAllCategories();
+            const structured = structureCategories(allCategories);
+
+            const incomeCats = structured.filter(c => c.type === 'income');
+            const expenseCats = structured.filter(c => c.type === 'expense');
+
+            incomeCategoriesList.innerHTML = incomeCats.map(c => categoryListItemHTML(c)).join('') || '<p class="text-sm text-gray-500">ไม่มีหมวดหมู่รายรับ</p>';
+            expenseCategoriesList.innerHTML = expenseCats.map(c => categoryListItemHTML(c)).join('') || '<p class="text-sm text-gray-500">ไม่มีหมวดหมู่รายจ่าย</p>';
+
+            const selectedType = document.querySelector('input[name="type"]:checked').value;
+            renderCategoryDropdown(structured, selectedType);
+        }
+
+        function getCategoryFullName(categoryId) {
+            if (!categoryId || !allCategoriesMap.has(categoryId)) return 'ไม่มีหมวดหมู่';
+            const category = allCategoriesMap.get(categoryId);
+            if (category.parent_id && allCategoriesMap.has(category.parent_id)) {
+                const parent = allCategoriesMap.get(category.parent_id);
+                return `${parent.name} → ${category.name}`;
+            }
+            return category.name;
         }
 
         function renderTransactions(transactions) {
@@ -398,57 +607,36 @@
                 const color = isIncome ? 'text-green-600' : 'text-red-600';
                 const txElement = document.createElement('div');
                 txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50';
-                txElement.innerHTML = `<div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}</svg></div><div><p class="font-semibold">${tx.categories?.name || 'ไม่มีหมวดหมู่'}</p><p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p><p class="text-sm text-gray-400">${tx.description || ''}</p></div></div><div class="text-right"><p class="font-bold text-lg ${color} inter">${sign}฿${parseFloat(tx.amount).toFixed(2)}</p><div class="mt-1"><button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button><button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button></div></div>`;
+                txElement.innerHTML = `<div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}</svg></div><div><p class="font-semibold">${getCategoryFullName(tx.category_id)}</p><p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p><p class="text-sm text-gray-400">${tx.description || ''}</p></div></div><div class="text-right"><p class="font-bold text-lg ${color} inter">${sign}฿${parseFloat(tx.amount).toFixed(2)}</p><div class="mt-1"><button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button><button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button></div></div>`;
                 transactionsList.appendChild(txElement);
             });
         }
 
         function renderYearlyChart(transactions) {
             const ctx = document.getElementById('yearly-chart').getContext('2d');
-            const monthlyData = {
-                income: Array(12).fill(0),
-                expense: Array(12).fill(0),
-            };
-
+            const monthlyData = { income: Array(12).fill(0), expense: Array(12).fill(0), };
             transactions.forEach(tx => {
                 const monthIndex = new Date(tx.date).getMonth();
-                if (tx.type === 'income') {
-                    monthlyData.income[monthIndex] += parseFloat(tx.amount);
-                } else {
-                    monthlyData.expense[monthIndex] += parseFloat(tx.amount);
-                }
+                if (tx.type === 'income') { monthlyData.income[monthIndex] += parseFloat(tx.amount); } 
+                else { monthlyData.expense[monthIndex] += parseFloat(tx.amount); }
             });
-
-            if (yearlyChartInstance) {
-                yearlyChartInstance.destroy();
-            }
-
+            if (yearlyChartInstance) { yearlyChartInstance.destroy(); }
             yearlyChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."],
-                    datasets: [
-                        { label: 'รายรับ', data: monthlyData.income, backgroundColor: 'rgba(16, 185, 129, 0.6)', borderColor: 'rgba(16, 185, 129, 1)', borderWidth: 1 },
-                        { label: 'รายจ่าย', data: monthlyData.expense, backgroundColor: 'rgba(239, 68, 68, 0.6)', borderColor: 'rgba(239, 68, 68, 1)', borderWidth: 1 }
-                    ]
+                    datasets: [ { label: 'รายรับ', data: monthlyData.income, backgroundColor: 'rgba(16, 185, 129, 0.6)' }, { label: 'รายจ่าย', data: monthlyData.expense, backgroundColor: 'rgba(239, 68, 68, 0.6)' } ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
             });
         }
         
         async function updateSummary(transactionsForPeriod) {
             if (!currentUser) return;
-            
             const income = transactionsForPeriod.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
             const expense = transactionsForPeriod.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-
             totalIncomeEl.textContent = `฿${income.toFixed(2)}`;
             totalExpenseEl.textContent = `฿${expense.toFixed(2)}`;
-            
             const year = yearFilter.options[yearFilter.selectedIndex].text;
             if (currentView === 'monthly') {
                 incomeCardTitle.textContent = 'รายรับเดือนนี้';
@@ -457,17 +645,16 @@
                 incomeCardTitle.textContent = `รายรับปี ${year}`;
                 expenseCardTitle.textContent = `รายจ่ายปี ${year}`;
             }
-
             const { data: allTimeData, error: allTimeError } = await db.from('transactions').select('amount, type').eq('user_id', currentUser.id);
             if (allTimeError) { console.error('Error fetching all time balance data:', allTimeError); return; }
-            const totalIncome = allTimeData.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-            const totalExpense = allTimeData.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-            balanceEl.textContent = `฿${(totalIncome - totalExpense).toFixed(2)}`;
+            const totalIncomeAll = allTimeData.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const totalExpenseAll = allTimeData.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            balanceEl.textContent = `฿${(totalIncomeAll - totalExpenseAll).toFixed(2)}`;
         }
 
         async function fetchAndRenderData() {
             const year = parseInt(yearFilter.value);
-            await renderCategories();
+            await renderCategoriesUI();
 
             if (currentView === 'monthly') {
                 const month = parseInt(monthFilter.value);
@@ -487,6 +674,10 @@
             e.preventDefault();
             if (!currentUser) return;
             const formData = new FormData(transactionForm);
+            if (!formData.get('category')) {
+                alert('กรุณาเลือกหมวดหมู่');
+                return;
+            }
             const newTransaction = {
                 date: formData.get('date'),
                 description: formData.get('description'),
@@ -496,17 +687,19 @@
                 user_id: currentUser.id,
             };
             const { error } = await db.from('transactions').insert(newTransaction);
-            if (error) {
-                console.error('Error adding transaction:', error);
-                alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
-            } else {
+            if (error) { console.error('Error adding transaction:', error); alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); } 
+            else {
                 transactionForm.reset();
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
                 await fetchAndRenderData();
             }
         });
 
-        typeRadios.forEach(radio => radio.addEventListener('change', renderCategories));
+        typeRadios.forEach(radio => radio.addEventListener('change', async (e) => {
+            const allCategories = await fetchAllCategories();
+            const structured = structureCategories(allCategories);
+            renderCategoryDropdown(structured, e.target.value);
+        }));
 
         transactionsList.addEventListener('click', async (e) => {
             const transactionId = e.target.dataset.id;
@@ -534,38 +727,61 @@
             const id = editTransactionId.value;
             const updatedData = { amount: parseFloat(editAmount.value), date: editDate.value, description: editDescription.value };
             const { error } = await db.from('transactions').update(updatedData).eq('id', id);
-            if(error) {
-                console.error('Error updating transaction:', error);
-                alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
-            } else {
+            if(error) { console.error('Error updating transaction:', error); alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล'); } 
+            else {
                 editTransactionModal.classList.add('hidden');
                 await fetchAndRenderData();
             }
         });
 
-        addCategoryForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if(!currentUser) return;
-            const name = document.getElementById('new-category-name').value;
-            const type = document.getElementById('new-category-type').value;
-            if (!name) return;
-            const { error } = await db.from('categories').insert({ name, type, user_id: currentUser.id });
-            if (error) console.error('Error adding category:', error);
-            else {
-                addCategoryForm.reset();
-                await fetchAndRenderData();
+        async function handleAddCategory(type, parent_id = null) {
+            const name = prompt(`กรุณาใส่ชื่อหมวดหมู่${parent_id ? 'ย่อย' : 'หลัก'}ใหม่:`);
+            if (!name || !currentUser) return;
+            const { error } = await db.from('categories').insert({ name, type, user_id: currentUser.id, parent_id });
+            if (error) { console.error('Error adding category:', error); alert('เกิดข้อผิดพลาด'); }
+            else { await fetchAndRenderData(); }
+        }
+
+        async function handleEditCategory(id) {
+            const currentName = allCategoriesMap.get(id)?.name || '';
+            const newName = prompt('กรุณาใส่ชื่อใหม่:', currentName);
+            if (!newName || newName === currentName) return;
+            const { error } = await db.from('categories').update({ name: newName }).eq('id', id);
+            if (error) { console.error('Error editing category:', error); alert('เกิดข้อผิดพลาด'); }
+            else { await fetchAndRenderData(); }
+        }
+
+        async function handleDeleteCategory(id) {
+            const category = allCategoriesMap.get(id);
+            if (!category) return;
+            
+            const hasSubcategories = Array.from(allCategoriesMap.values()).some(c => c.parent_id === id);
+            if (hasSubcategories) {
+                alert('ไม่สามารถลบหมวดหมู่หลักที่มีหมวดหมู่ย่อยอยู่ได้ กรุณาลบหมวดหมู่ย่อยทั้งหมดก่อน');
+                return;
             }
-        });
+
+            if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${category.name}"? การกระทำนี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่"`)) {
+                const { error } = await db.from('categories').delete().eq('id', id);
+                if (error) { console.error('Error deleting category:', error); alert('เกิดข้อผิดพลาด'); }
+                else { await fetchAndRenderData(); }
+            }
+        }
         
+        addIncomeCategoryBtn.addEventListener('click', () => handleAddCategory('income'));
+        addExpenseCategoryBtn.addEventListener('click', () => handleAddCategory('expense'));
+
         [incomeCategoriesList, expenseCategoriesList].forEach(list => {
-            list.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('delete-category-btn')) {
-                    const categoryId = e.target.closest('li').dataset.id;
-                    if (confirm('การลบหมวดหมู่นี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่" คุณต้องการดำเนินการต่อหรือไม่?')) {
-                         const { error } = await db.from('categories').delete().eq('id', categoryId);
-                         if (error) console.error('Error deleting category:', error);
-                         else await fetchAndRenderData();
-                    }
+            list.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                const action = button.dataset.action;
+                const id = parseInt(button.dataset.id);
+                if (action === 'edit') handleEditCategory(id);
+                else if (action === 'delete') handleDeleteCategory(id);
+                else if (action === 'add-sub') {
+                    const parentType = allCategoriesMap.get(id)?.type;
+                    handleAddCategory(parentType, id);
                 }
             });
         });
@@ -576,6 +792,45 @@
         manageCategoriesBtn.addEventListener('click', () => categoryModal.classList.remove('hidden'));
         closeCategoryModalBtn.addEventListener('click', () => categoryModal.classList.add('hidden'));
         closeEditModalBtn.addEventListener('click', () => editTransactionModal.classList.add('hidden'));
+
+        getAiInsightBtn.addEventListener('click', async () => {
+            aiInsightContent.innerHTML = '';
+            aiInsightLoader.style.display = 'block';
+            aiInsightModal.classList.remove('hidden');
+
+            const year = parseInt(yearFilter.value);
+            const month = parseInt(monthFilter.value);
+            const viewPeriod = currentView === 'monthly' 
+                ? `${monthFilter.options[monthFilter.selectedIndex].text} ${yearFilter.options[yearFilter.selectedIndex].text}`
+                : `ปี ${yearFilter.options[yearFilter.selectedIndex].text}`;
+                
+            const transactions = currentView === 'monthly'
+                ? await fetchTransactions(year, month)
+                : await fetchYearlyTransactions(year);
+
+            if (transactions.length === 0) {
+                aiInsightContent.innerText = `ไม่มีข้อมูลธุรกรรมสำหรับ ${viewPeriod} ที่จะนำมาวิเคราะห์ได้ค่ะ`;
+                aiInsightLoader.style.display = 'none';
+                return;
+            }
+
+            const promptData = formatForAI(transactions);
+            const prompt = `นี่คือข้อมูลการเงินของฉันสำหรับ ${viewPeriod}:\n\n${promptData}\n\nช่วยวิเคราะห์และให้คำแนะนำหน่อย`;
+            
+            const result = await callGemini(prompt);
+            
+            let htmlResult = result
+                .replace(/## (.*)/g, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
+                .replace(/\* (.*)/g, '<li>$1</li>');
+
+            aiInsightContent.innerHTML = htmlResult;
+            aiInsightLoader.style.display = 'none';
+        });
+
+        closeAiInsightModalBtn.addEventListener('click', () => {
+            aiInsightModal.classList.add('hidden');
+        });
+
 
         // --- Initialization ---
         let isInitialized = false;
@@ -606,12 +861,11 @@
             if (isInitialized) return;
             document.getElementById('date').value = new Date().toISOString().split('T')[0];
             populateFilters();
-            setView('monthly'); // Set initial view
+            setView('monthly'); 
             isInitialized = true;
         }
 
     </script>
 </body>
 </html>
-
 
