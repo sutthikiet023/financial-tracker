@@ -107,6 +107,22 @@
             </section>
 
             <div id="monthly-view-container">
+                 <!-- Pie Charts Section -->
+                <section id="pie-chart-section" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold mb-4 text-center">สัดส่วนรายรับ</h3>
+                        <div class="w-full h-64 relative">
+                            <canvas id="income-pie-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold mb-4 text-center">สัดส่วนรายจ่าย</h3>
+                        <div class="w-full h-64 relative">
+                            <canvas id="expense-pie-chart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Add Transaction Form -->
                 <section class="bg-white p-6 rounded-xl shadow-md mb-8">
                     <h2 class="text-2xl font-bold mb-4">เพิ่มรายการใหม่</h2>
@@ -356,10 +372,20 @@
         const aiInsightLoader = document.getElementById('ai-insight-loader');
         const aiInsightContent = document.getElementById('ai-insight-content');
 
+        const incomePieChartCanvas = document.getElementById('income-pie-chart');
+        const expensePieChartCanvas = document.getElementById('expense-pie-chart');
+
         let currentUser = null;
         let currentView = 'monthly';
         let yearlyChartInstance = null;
+        let incomePieChartInstance = null;
+        let expensePieChartInstance = null;
         let allCategoriesMap = new Map();
+
+        // --- Helpers ---
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
 
         // --- Authentication ---
         function showAuthError(message) {
@@ -448,7 +474,7 @@
 
             transactions.forEach(tx => {
                 const categoryName = getCategoryFullName(tx.category_id);
-                const item = `- ${categoryName}: ${parseFloat(tx.amount).toFixed(2)} บาท (${tx.description || 'ไม่มีคำอธิบาย'})\n`;
+                const item = `- ${categoryName}: ${formatNumber(tx.amount)} บาท (${tx.description || 'ไม่มีคำอธิบาย'})\n`;
                 if (tx.type === 'income') {
                     incomeStr += item;
                     incomeCount++;
@@ -607,7 +633,7 @@
                 const color = isIncome ? 'text-green-600' : 'text-red-600';
                 const txElement = document.createElement('div');
                 txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50';
-                txElement.innerHTML = `<div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}</svg></div><div><p class="font-semibold">${getCategoryFullName(tx.category_id)}</p><p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p><p class="text-sm text-gray-400">${tx.description || ''}</p></div></div><div class="text-right"><p class="font-bold text-lg ${color} inter">${sign}฿${parseFloat(tx.amount).toFixed(2)}</p><div class="mt-1"><button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button><button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button></div></div>`;
+                txElement.innerHTML = `<div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}</svg></div><div><p class="font-semibold">${getCategoryFullName(tx.category_id)}</p><p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p><p class="text-sm text-gray-400">${tx.description || ''}</p></div></div><div class="text-right"><p class="font-bold text-lg ${color} inter">${sign}฿${formatNumber(tx.amount)}</p><div class="mt-1"><button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button><button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button></div></div>`;
                 transactionsList.appendChild(txElement);
             });
         }
@@ -630,13 +656,73 @@
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
             });
         }
+
+        function renderPieCharts(transactions) {
+            const incomeData = {};
+            const expenseData = {};
+
+            transactions.forEach(tx => {
+                const category = allCategoriesMap.get(tx.category_id);
+                if (!category) return;
+                const mainCategoryId = category.parent_id || category.id;
+                const mainCategory = allCategoriesMap.get(mainCategoryId);
+                if (!mainCategory) return;
+                const amount = parseFloat(tx.amount);
+                if (tx.type === 'income') {
+                    incomeData[mainCategory.name] = (incomeData[mainCategory.name] || 0) + amount;
+                } else {
+                    expenseData[mainCategory.name] = (expenseData[mainCategory.name] || 0) + amount;
+                }
+            });
+
+            if (incomePieChartInstance) incomePieChartInstance.destroy();
+            if (expensePieChartInstance) expensePieChartInstance.destroy();
+
+            const pieColors = ['#4F46E5', '#10B981', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#60A5FA', '#A78BFA'];
+
+            function createPieChart(canvas, title, data) {
+                const labels = Object.keys(data);
+                const values = Object.values(data);
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (labels.length === 0) {
+                     ctx.font = "16px Sarabun";
+                     ctx.fillStyle = "#6B7280";
+                     ctx.textAlign = "center";
+                     ctx.fillText("ไม่มีข้อมูล", canvas.width / 2, canvas.height / 2);
+                     return null;
+                }
+
+                return new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: title, data: values,
+                            backgroundColor: labels.map((_, i) => pieColors[i % pieColors.length]),
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { font: { family: "'Sarabun', sans-serif" } } } }
+                    }
+                });
+            }
+
+            incomePieChartInstance = createPieChart(incomePieChartCanvas, 'รายรับ', incomeData);
+            expensePieChartInstance = createPieChart(expensePieChartCanvas, 'รายจ่าย', expenseData);
+        }
         
         async function updateSummary(transactionsForPeriod) {
             if (!currentUser) return;
             const income = transactionsForPeriod.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
             const expense = transactionsForPeriod.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-            totalIncomeEl.textContent = `฿${income.toFixed(2)}`;
-            totalExpenseEl.textContent = `฿${expense.toFixed(2)}`;
+            
+            totalIncomeEl.textContent = `฿${formatNumber(income)}`;
+            totalExpenseEl.textContent = `฿${formatNumber(expense)}`;
+
             const year = yearFilter.options[yearFilter.selectedIndex].text;
             if (currentView === 'monthly') {
                 incomeCardTitle.textContent = 'รายรับเดือนนี้';
@@ -649,7 +735,7 @@
             if (allTimeError) { console.error('Error fetching all time balance data:', allTimeError); return; }
             const totalIncomeAll = allTimeData.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
             const totalExpenseAll = allTimeData.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
-            balanceEl.textContent = `฿${(totalIncomeAll - totalExpenseAll).toFixed(2)}`;
+            balanceEl.textContent = `฿${formatNumber(totalIncomeAll - totalExpenseAll)}`;
         }
 
         async function fetchAndRenderData() {
@@ -660,6 +746,7 @@
                 const month = parseInt(monthFilter.value);
                 const transactions = await fetchTransactions(year, month);
                 renderTransactions(transactions);
+                renderPieCharts(transactions);
                 await updateSummary(transactions);
             } else { // yearly
                 summaryYearText.textContent = yearFilter.options[yearFilter.selectedIndex].text;
