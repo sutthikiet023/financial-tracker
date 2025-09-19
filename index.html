@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แอปบันทึกรายรับ-รายจ่าย</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        .inter {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+
+        <!-- Auth Container -->
+        <div id="auth-container" class="max-w-md mx-auto mt-10">
+            <div class="bg-white p-8 rounded-xl shadow-md">
+                <h2 class="text-2xl font-bold text-center mb-6">เข้าสู่ระบบ / สมัครสมาชิก</h2>
+                <div id="auth-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert"></div>
+                <form id="auth-form">
+                    <div class="mb-4">
+                        <label for="auth-email" class="block text-sm font-medium text-gray-700">อีเมล</label>
+                        <input type="email" id="auth-email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="auth-password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                        <input type="password" id="auth-password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                    </div>
+                    <div class="flex items-center justify-between gap-4">
+                        <button type="button" id="login-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">เข้าสู่ระบบ</button>
+                        <button type="button" id="signup-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-indigo-700 bg-indigo-100 hover:bg-indigo-200">สมัครสมาชิก</button>
+                    </div>
+                </form>
+            </div>
+             <p class="text-center text-gray-500 text-xs mt-4">หากสมัครสมาชิกใหม่ กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี</p>
+        </div>
+
+        <!-- App Container -->
+        <div id="app-container" class="hidden">
+            <header class="text-center mb-8 relative">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-700">แอปบันทึกรายรับ-รายจ่าย</h1>
+                <p class="text-gray-500 mt-2">จัดการการเงินของคุณให้เป็นระบบ</p>
+                <button id="logout-btn" class="hidden absolute top-0 right-0 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-300 text-sm">ออกจากระบบ</button>
+            </header>
+    
+            <!-- Summary Cards -->
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
+                    <h2 class="text-lg font-semibold text-gray-500">ยอดคงเหลือ</h2>
+                    <p id="balance" class="text-3xl font-bold text-blue-600 inter">฿0.00</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
+                    <h2 class="text-lg font-semibold text-gray-500">รายรับเดือนนี้</h2>
+                    <p id="total-income" class="text-3xl font-bold text-green-600 inter">฿0.00</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
+                    <h2 class="text-lg font-semibold text-gray-500">รายจ่ายเดือนนี้</h2>
+                    <p id="total-expense" class="text-3xl font-bold text-red-600 inter">฿0.00</p>
+                </div>
+            </section>
+            
+            <!-- Filters and Actions -->
+            <section class="bg-white p-4 rounded-xl shadow-md mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex gap-4">
+                    <div>
+                        <label for="month-filter" class="block text-sm font-medium text-gray-700">เดือน</label>
+                        <select id="month-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="year-filter" class="block text-sm font-medium text-gray-700">ปี</label>
+                        <select id="year-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                </div>
+                <button id="manage-categories-btn" class="w-full md:w-auto bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300">จัดการหมวดหมู่</button>
+            </section>
+    
+            <!-- Add Transaction Form -->
+            <section class="bg-white p-6 rounded-xl shadow-md mb-8">
+                <h2 class="text-2xl font-bold mb-4">เพิ่มรายการใหม่</h2>
+                <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="md:col-span-2">
+                        <fieldset class="flex gap-6">
+                            <legend class="text-base font-medium text-gray-900">ประเภทรายการ</legend>
+                            <div class="flex items-center">
+                                <input id="type-income" name="type" type="radio" value="income" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300" checked>
+                                <label for="type-income" class="ml-3 block text-sm font-medium text-gray-700">รายรับ</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="type-expense" name="type" type="radio" value="expense" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                <label for="type-expense" class="ml-3 block text-sm font-medium text-gray-700">รายจ่าย</label>
+                            </div>
+                        </fieldset>
+                    </div>
+                    <div>
+                        <label for="category" class="block text-sm font-medium text-gray-700">หมวดหมู่</label>
+                        <select id="category" name="category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="amount" class="block text-sm font-medium text-gray-700">จำนวนเงิน</label>
+                        <input type="number" name="amount" id="amount" step="0.01" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" placeholder="0.00" required>
+                    </div>
+                    <div>
+                        <label for="date" class="block text-sm font-medium text-gray-700">วันที่</label>
+                        <input type="date" name="date" id="date" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="description" class="block text-sm font-medium text-gray-700">คำอธิบาย (ไม่บังคับ)</label>
+                        <textarea id="description" name="description" rows="2" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+                    </div>
+                    <div class="md:col-span-2 text-right">
+                        <button type="submit" class="w-full md:w-auto inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300">บันทึกรายการ</button>
+                    </div>
+                </form>
+            </section>
+    
+            <!-- Transactions List -->
+            <section>
+                <h2 class="text-2xl font-bold mb-4">รายการล่าสุด</h2>
+                <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                    <div id="transactions-list" class="divide-y divide-gray-200">
+                        <!-- Transactions will be rendered here -->
+                         <p class="p-6 text-center text-gray-500">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Category Management Modal -->
+    <div id="category-modal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">จัดการหมวดหมู่</h3>
+                    
+                    <form id="add-category-form" class="flex gap-2 mb-4">
+                         <input type="text" id="new-category-name" placeholder="ชื่อหมวดหมู่ใหม่" class="flex-grow focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" required>
+                         <select id="new-category-type" class="focus:ring-indigo-500 focus:border-indigo-500 shadow-sm sm:text-sm border-gray-300 rounded-md">
+                            <option value="income">รายรับ</option>
+                            <option value="expense">รายจ่าย</option>
+                         </select>
+                         <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700">เพิ่ม</button>
+                    </form>
+
+                    <div class="max-h-60 overflow-y-auto">
+                        <h4 class="font-semibold mt-4">หมวดหมู่รายรับ</h4>
+                        <ul id="income-categories-list" class="divide-y divide-gray-200"></ul>
+                        <h4 class="font-semibold mt-4">หมวดหมู่รายจ่าย</h4>
+                        <ul id="expense-categories-list" class="divide-y divide-gray-200"></ul>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="close-category-modal" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Transaction Modal -->
+    <div id="edit-transaction-modal" class="hidden fixed z-10 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form id="edit-transaction-form">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">แก้ไขรายการ</h3>
+                        <input type="hidden" id="edit-transaction-id">
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                               <label for="edit-amount" class="block text-sm font-medium text-gray-700">จำนวนเงิน</label>
+                               <input type="number" name="edit-amount" id="edit-amount" step="0.01" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" required>
+                            </div>
+                            <div>
+                               <label for="edit-date" class="block text-sm font-medium text-gray-700">วันที่</label>
+                               <input type="date" name="edit-date" id="edit-date" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" required>
+                            </div>
+                            <div>
+                                <label for="edit-description" class="block text-sm font-medium text-gray-700">คำอธิบาย</label>
+                                <textarea id="edit-description" name="edit-description" rows="2" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">บันทึก</button>
+                        <button type="button" id="close-edit-modal" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">ยกเลิก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- SUPABASE SETUP ---
+        const SUPABASE_URL = 'https://gipaqbwkdlolawfojozy.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpcGFxYndrZGxvbGF3Zm9qb3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyNjU4MjYsImV4cCI6MjA3Mzg0MTgyNn0.j-wOAKNW3URanhMTczXszNiRo__mtqwZbDleJpo482U';
+        
+        // --- SQL for Supabase Table Setup ---
+        /*
+        -- 1. Create categories table
+        CREATE TABLE categories (
+          id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          name TEXT NOT NULL,
+          type TEXT NOT NULL, -- 'income' or 'expense'
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+        );
+        -- Enable Row Level Security (RLS)
+        ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+        -- Create policies
+        CREATE POLICY "Users can manage their own categories"
+          ON categories FOR ALL
+          USING (auth.uid() = user_id)
+          WITH CHECK (auth.uid() = user_id);
+
+        -- 2. Create transactions table
+        CREATE TABLE transactions (
+          id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          date DATE NOT NULL,
+          description TEXT,
+          amount NUMERIC NOT NULL,
+          type TEXT NOT NULL, -- 'income' or 'expense'
+          category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
+          user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+        );
+        -- Enable Row Level Security (RLS)
+        ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+        -- Create policies
+        CREATE POLICY "Users can manage their own transactions"
+          ON transactions FOR ALL
+          USING (auth.uid() = user_id)
+          WITH CHECK (auth.uid() = user_id);
+        */
+
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DOM Elements
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authError = document.getElementById('auth-error');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        const transactionForm = document.getElementById('transaction-form');
+        const transactionsList = document.getElementById('transactions-list');
+        const categorySelect = document.getElementById('category');
+        const typeRadios = document.querySelectorAll('input[name="type"]');
+        
+        const balanceEl = document.getElementById('balance');
+        const totalIncomeEl = document.getElementById('total-income');
+        const totalExpenseEl = document.getElementById('total-expense');
+        
+        const monthFilter = document.getElementById('month-filter');
+        const yearFilter = document.getElementById('year-filter');
+
+        const manageCategoriesBtn = document.getElementById('manage-categories-btn');
+        const categoryModal = document.getElementById('category-modal');
+        const closeCategoryModalBtn = document.getElementById('close-category-modal');
+        const addCategoryForm = document.getElementById('add-category-form');
+        const incomeCategoriesList = document.getElementById('income-categories-list');
+        const expenseCategoriesList = document.getElementById('expense-categories-list');
+        
+        const editTransactionModal = document.getElementById('edit-transaction-modal');
+        const editTransactionForm = document.getElementById('edit-transaction-form');
+        const closeEditModalBtn = document.getElementById('close-edit-modal');
+        const editTransactionId = document.getElementById('edit-transaction-id');
+        const editAmount = document.getElementById('edit-amount');
+        const editDate = document.getElementById('edit-date');
+        const editDescription = document.getElementById('edit-description');
+
+        let currentUser = null;
+
+        // --- Authentication ---
+        
+        function showAuthError(message) {
+            authError.textContent = message;
+            authError.classList.remove('hidden');
+        }
+
+        loginBtn.addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            authError.classList.add('hidden');
+
+            const { error } = await db.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                showAuthError(error.message);
+            }
+        });
+        
+        signupBtn.addEventListener('click', async () => {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            authError.classList.add('hidden');
+
+            const { error } = await db.auth.signUp({ email, password });
+
+            if (error) {
+                showAuthError(error.message);
+            } else {
+                alert('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลของคุณเพื่อยืนยันบัญชี');
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await db.auth.signOut();
+        });
+
+
+        // Listen for auth changes
+        db.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                currentUser = session.user;
+                authContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                logoutBtn.classList.remove('hidden');
+                initializeApp();
+            } else {
+                currentUser = null;
+                authContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                logoutBtn.classList.add('hidden');
+            }
+        });
+
+        // --- Data Fetching and Rendering ---
+        async function fetchCategories() {
+            if (!currentUser) return { income: [], expense: [] };
+            const { data, error } = await db
+                .from('categories')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .order('name');
+                
+            if (error) {
+                console.error('Error fetching categories:', error);
+                return { income: [], expense: [] };
+            }
+
+            const income = data.filter(c => c.type === 'income');
+            const expense = data.filter(c => c.type === 'expense');
+            return { income, expense };
+        }
+
+        async function fetchTransactions(year, month) {
+            if (!currentUser) return [];
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+
+            const { data, error } = await db
+                .from('transactions')
+                .select('*, categories ( name )')
+                .eq('user_id', currentUser.id)
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .order('date', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching transactions:', error);
+                return [];
+            }
+            return data;
+        }
+
+        async function renderCategories() {
+            const { income, expense } = await fetchCategories();
+            const selectedType = document.querySelector('input[name="type"]:checked').value;
+            
+            // Populate form dropdown
+            categorySelect.innerHTML = '';
+            const categoriesForType = selectedType === 'income' ? income : expense;
+            categoriesForType.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                categorySelect.appendChild(option);
+            });
+            
+            // Populate management modal
+            incomeCategoriesList.innerHTML = income.map(cat => categoryListItemHTML(cat)).join('');
+            expenseCategoriesList.innerHTML = expense.map(cat => categoryListItemHTML(cat)).join('');
+        }
+
+        function categoryListItemHTML(category) {
+            return `
+                <li data-id="${category.id}" class="py-2 flex justify-between items-center">
+                    <span>${category.name}</span>
+                    <button class="delete-category-btn text-red-500 hover:text-red-700 text-sm">ลบ</button>
+                </li>
+            `;
+        }
+
+        function renderTransactions(transactions) {
+            transactionsList.innerHTML = '';
+            if (transactions.length === 0) {
+                transactionsList.innerHTML = `<p class="p-6 text-center text-gray-500">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>`;
+                return;
+            }
+
+            transactions.forEach(tx => {
+                const isIncome = tx.type === 'income';
+                const sign = isIncome ? '+' : '-';
+                const color = isIncome ? 'text-green-600' : 'text-red-600';
+                
+                const txElement = document.createElement('div');
+                txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50';
+                txElement.innerHTML = `
+                    <div class="flex items-center gap-4">
+                         <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                ${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}
+                            </svg>
+                         </div>
+                        <div>
+                            <p class="font-semibold">${tx.categories?.name || 'ไม่มีหมวดหมู่'}</p>
+                            <p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p>
+                            <p class="text-sm text-gray-400">${tx.description || ''}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-lg ${color} inter">${sign}฿${parseFloat(tx.amount).toFixed(2)}</p>
+                        <div class="mt-1">
+                            <button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button>
+                            <button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button>
+                        </div>
+                    </div>
+                `;
+                transactionsList.appendChild(txElement);
+            });
+        }
+        
+        async function updateSummary() {
+            if (!currentUser) return;
+             const year = parseInt(yearFilter.value);
+            const month = parseInt(monthFilter.value);
+            const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+            const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+
+            const { data, error } = await db
+                .from('transactions')
+                .select('amount, type')
+                .eq('user_id', currentUser.id)
+                .gte('date', startDate)
+                .lte('date', endDate);
+
+            if (error) {
+                console.error('Error fetching summary data:', error);
+                return;
+            }
+
+            const income = data.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const expense = data.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            
+            // Calculate total balance from all time
+            const { data: allTimeData, error: allTimeError } = await db
+                .from('transactions')
+                .select('amount, type')
+                .eq('user_id', currentUser.id);
+
+            if (allTimeError) {
+                console.error('Error fetching all time balance data:', allTimeError);
+                return;
+            }
+
+            const totalIncome = allTimeData.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const totalExpense = allTimeData.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const balance = totalIncome - totalExpense;
+
+
+            balanceEl.textContent = `฿${balance.toFixed(2)}`;
+            totalIncomeEl.textContent = `฿${income.toFixed(2)}`;
+            totalExpenseEl.textContent = `฿${expense.toFixed(2)}`;
+        }
+
+        async function fetchAndRenderData() {
+            const year = parseInt(yearFilter.value);
+            const month = parseInt(monthFilter.value);
+            const transactions = await fetchTransactions(year, month);
+            renderTransactions(transactions);
+            await updateSummary();
+            await renderCategories();
+        }
+
+        // --- Event Handlers ---
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const formData = new FormData(transactionForm);
+            const newTransaction = {
+                date: formData.get('date'),
+                description: formData.get('description'),
+                amount: parseFloat(formData.get('amount')),
+                type: formData.get('type'),
+                category_id: parseInt(formData.get('category')),
+                user_id: currentUser.id,
+            };
+
+            const { error } = await db.from('transactions').insert(newTransaction);
+            if (error) {
+                console.error('Error adding transaction:', error);
+                alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            } else {
+                transactionForm.reset();
+                document.getElementById('date').value = new Date().toISOString().split('T')[0]; // Reset date to today
+                await fetchAndRenderData();
+            }
+        });
+
+        typeRadios.forEach(radio => radio.addEventListener('change', renderCategories));
+
+        transactionsList.addEventListener('click', async (e) => {
+            const transactionId = e.target.dataset.id;
+            if (!transactionId) return;
+
+            if (e.target.classList.contains('delete-btn')) {
+                if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?')) {
+                    const { error } = await db.from('transactions').delete().eq('id', transactionId);
+                    if (error) console.error('Error deleting:', error);
+                    else await fetchAndRenderData();
+                }
+            }
+            
+            if (e.target.classList.contains('edit-btn')) {
+                const { data, error } = await db.from('transactions').select('*').eq('id', transactionId).single();
+                if(error) {
+                    console.error('Error fetching transaction for edit:', error);
+                    return;
+                }
+                editTransactionId.value = data.id;
+                editAmount.value = data.amount;
+                editDate.value = data.date;
+                editDescription.value = data.description;
+                editTransactionModal.classList.remove('hidden');
+            }
+        });
+        
+        editTransactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = editTransactionId.value;
+            const updatedData = {
+                amount: parseFloat(editAmount.value),
+                date: editDate.value,
+                description: editDescription.value
+            };
+            const { error } = await db.from('transactions').update(updatedData).eq('id', id);
+            if(error) {
+                console.error('Error updating transaction:', error);
+                alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล');
+            } else {
+                editTransactionModal.classList.add('hidden');
+                await fetchAndRenderData();
+            }
+        });
+
+        addCategoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!currentUser) return;
+            const name = document.getElementById('new-category-name').value;
+            const type = document.getElementById('new-category-type').value;
+
+            if (!name) return;
+            const { error } = await db.from('categories').insert({ name, type, user_id: currentUser.id });
+            if (error) console.error('Error adding category:', error);
+            else {
+                addCategoryForm.reset();
+                await fetchAndRenderData();
+            }
+        });
+        
+        const categoryLists = [incomeCategoriesList, expenseCategoriesList];
+        categoryLists.forEach(list => {
+            list.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('delete-category-btn')) {
+                    const categoryId = e.target.closest('li').dataset.id;
+                    if (confirm('การลบหมวดหมู่นี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่" คุณต้องการดำเนินการต่อหรือไม่?')) {
+                         const { error } = await db.from('categories').delete().eq('id', categoryId);
+                         if (error) console.error('Error deleting category:', error);
+                         else await fetchAndRenderData();
+                    }
+                }
+            });
+        });
+        
+        [monthFilter, yearFilter].forEach(el => el.addEventListener('change', fetchAndRenderData));
+
+        // --- Modal Controls ---
+        manageCategoriesBtn.addEventListener('click', () => categoryModal.classList.remove('hidden'));
+        closeCategoryModalBtn.addEventListener('click', () => categoryModal.classList.add('hidden'));
+        closeEditModalBtn.addEventListener('click', () => editTransactionModal.classList.add('hidden'));
+
+        // --- Initialization ---
+        let isInitialized = false;
+        function populateFilters() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+
+            // Year filter
+            yearFilter.innerHTML = '';
+            for (let i = currentYear + 1; i >= currentYear - 5; i--) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i + 543; // Display as B.E. year
+                if (i === currentYear) option.selected = true;
+                yearFilter.appendChild(option);
+            }
+
+            // Month filter
+            monthFilter.innerHTML = '';
+            const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+            months.forEach((month, index) => {
+                const option = document.createElement('option');
+                option.value = index + 1;
+                option.textContent = month;
+                if (index + 1 === currentMonth) option.selected = true;
+                monthFilter.appendChild(option);
+            });
+        }
+        
+        function initializeApp() {
+            if (isInitialized) return;
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            populateFilters();
+            fetchAndRenderData();
+            isInitialized = true;
+        }
+
+    </script>
+</body>
+</html>
+
