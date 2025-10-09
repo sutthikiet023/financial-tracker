@@ -29,7 +29,7 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
 
         <!-- Auth Container -->
         <div id="auth-container" class="max-w-md mx-auto mt-10">
@@ -61,18 +61,26 @@
             </header>
     
             <!-- Summary Cards -->
-            <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <section class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
-                    <h2 class="text-lg font-semibold text-gray-500">ยอดคงเหลือทั้งหมด</h2>
+                    <h2 class="text-lg font-semibold text-gray-500">ยอดคงเหลือ</h2>
                     <p id="balance" class="text-3xl font-bold text-blue-600 inter">฿0.00</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
-                    <h2 id="income-card-title" class="text-lg font-semibold text-gray-500">รายรับเดือนนี้</h2>
+                    <h2 id="income-card-title" class="text-lg font-semibold text-gray-500">รายรับ</h2>
                     <p id="total-income" class="text-3xl font-bold text-green-600 inter">฿0.00</p>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
-                    <h2 id="expense-card-title" class="text-lg font-semibold text-gray-500">รายจ่ายเดือนนี้</h2>
+                    <h2 id="expense-card-title" class="text-lg font-semibold text-gray-500">รายจ่าย</h2>
                     <p id="total-expense" class="text-3xl font-bold text-red-600 inter">฿0.00</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
+                    <h2 class="text-lg font-semibold text-gray-500">รายจ่ายเงินสด</h2>
+                    <p id="total-cash-expense" class="text-3xl font-bold text-emerald-600 inter">฿0.00</p>
+                </div>
+                 <div class="bg-white p-6 rounded-xl shadow-md flex flex-col justify-center items-center">
+                    <h2 class="text-lg font-semibold text-gray-500">รายจ่ายบัตรเครดิต</h2>
+                    <p id="total-credit-expense" class="text-3xl font-bold text-sky-600 inter">฿0.00</p>
                 </div>
             </section>
             
@@ -108,7 +116,7 @@
 
             <div id="monthly-view-container">
                  <!-- Pie Charts Section -->
-                <section id="pie-chart-section" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <section id="pie-chart-section" class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h3 class="text-xl font-bold mb-4 text-center">สัดส่วนรายรับ</h3>
                         <div class="w-full h-64 relative">
@@ -119,6 +127,12 @@
                         <h3 class="text-xl font-bold mb-4 text-center">สัดส่วนรายจ่าย</h3>
                         <div class="w-full h-64 relative">
                             <canvas id="expense-pie-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-bold mb-4 text-center">สัดส่วนช่องทางชำระเงิน</h3>
+                        <div class="w-full h-64 relative">
+                            <canvas id="payment-pie-chart"></canvas>
                         </div>
                     </div>
                 </section>
@@ -361,6 +375,8 @@
         const balanceEl = document.getElementById('balance');
         const totalIncomeEl = document.getElementById('total-income');
         const totalExpenseEl = document.getElementById('total-expense');
+        const totalCashExpenseEl = document.getElementById('total-cash-expense');
+        const totalCreditExpenseEl = document.getElementById('total-credit-expense');
         const incomeCardTitle = document.getElementById('income-card-title');
         const expenseCardTitle = document.getElementById('expense-card-title');
         
@@ -391,12 +407,14 @@
 
         const incomePieChartCanvas = document.getElementById('income-pie-chart');
         const expensePieChartCanvas = document.getElementById('expense-pie-chart');
+        const paymentPieChartCanvas = document.getElementById('payment-pie-chart');
 
         let currentUser = null;
         let currentView = 'monthly';
         let yearlyChartInstance = null;
         let incomePieChartInstance = null;
         let expensePieChartInstance = null;
+        let paymentMethodPieChartInstance = null;
         let allCategoriesMap = new Map();
 
         // --- Helpers ---
@@ -703,11 +721,17 @@
             });
         }
 
-        function renderPieCharts(transactions) {
+        function renderMonthlyCharts(transactions) {
             const incomeData = {};
             const expenseData = {};
+            const paymentData = {};
 
             transactions.forEach(tx => {
+                if (tx.type === 'expense' && tx.payment_method) {
+                    const method = tx.payment_method === 'credit' ? 'บัตรเครดิต' : 'เงินสด';
+                    paymentData[method] = (paymentData[method] || 0) + parseFloat(tx.amount);
+                }
+                
                 const category = allCategoriesMap.get(tx.category_id);
                 if (!category) return;
                 const mainCategoryId = category.parent_id || category.id;
@@ -723,10 +747,12 @@
 
             if (incomePieChartInstance) incomePieChartInstance.destroy();
             if (expensePieChartInstance) expensePieChartInstance.destroy();
+            if (paymentMethodPieChartInstance) paymentMethodPieChartInstance.destroy();
 
-            const pieColors = ['#4F46E5', '#10B981', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6', '#F97316', '#60A5FA', '#A78BFA'];
+            const pieColors = ['#4F46E5', '#10B981', '#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#EC4899'];
+            const paymentColors = { 'เงินสด': '#10B981', 'บัตรเครดิต': '#3B82F6'};
 
-            function createPieChart(canvas, title, data) {
+            function createPieChart(canvas, title, data, colors = pieColors) {
                 const labels = Object.keys(data);
                 const values = Object.values(data);
                 const ctx = canvas.getContext('2d');
@@ -739,6 +765,10 @@
                      ctx.fillText("ไม่มีข้อมูล", canvas.width / 2, canvas.height / 2);
                      return null;
                 }
+                
+                const backgroundColors = Array.isArray(colors) 
+                    ? labels.map((_, i) => colors[i % colors.length])
+                    : labels.map(label => colors[label]);
 
                 return new Chart(ctx, {
                     type: 'pie',
@@ -746,7 +776,7 @@
                         labels: labels,
                         datasets: [{
                             label: title, data: values,
-                            backgroundColor: labels.map((_, i) => pieColors[i % pieColors.length]),
+                            backgroundColor: backgroundColors,
                             hoverOffset: 4
                         }]
                     },
@@ -759,24 +789,27 @@
 
             incomePieChartInstance = createPieChart(incomePieChartCanvas, 'รายรับ', incomeData);
             expensePieChartInstance = createPieChart(expensePieChartCanvas, 'รายจ่าย', expenseData);
+            paymentMethodPieChartInstance = createPieChart(paymentPieChartCanvas, 'ช่องทางชำระเงิน', paymentData, paymentColors);
         }
         
         async function updateSummary(transactionsForPeriod) {
             if (!currentUser) return;
             const income = transactionsForPeriod.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
             const expense = transactionsForPeriod.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const cashExpense = transactionsForPeriod.filter(tx => tx.type === 'expense' && tx.payment_method === 'cash').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+            const creditExpense = transactionsForPeriod.filter(tx => tx.type === 'expense' && tx.payment_method === 'credit').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+
             
             totalIncomeEl.textContent = `฿${formatNumber(income)}`;
             totalExpenseEl.textContent = `฿${formatNumber(expense)}`;
+            totalCashExpenseEl.textContent = `฿${formatNumber(cashExpense)}`;
+            totalCreditExpenseEl.textContent = `฿${formatNumber(creditExpense)}`;
 
             const year = yearFilter.options[yearFilter.selectedIndex].text;
-            if (currentView === 'monthly') {
-                incomeCardTitle.textContent = 'รายรับเดือนนี้';
-                expenseCardTitle.textContent = 'รายจ่ายเดือนนี้';
-            } else {
-                incomeCardTitle.textContent = `รายรับปี ${year}`;
-                expenseCardTitle.textContent = `รายจ่ายปี ${year}`;
-            }
+            const baseTitle = currentView === 'monthly' ? `เดือนนี้` : `ปี ${year}`;
+            incomeCardTitle.textContent = `รายรับ ${baseTitle}`;
+            expenseCardTitle.textContent = `รายจ่าย ${baseTitle}`;
+            
             const { data: allTimeData, error: allTimeError } = await db.from('transactions').select('amount, type').eq('user_id', currentUser.id);
             if (allTimeError) { console.error('Error fetching all time balance data:', allTimeError); return; }
             const totalIncomeAll = allTimeData.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
@@ -792,7 +825,7 @@
                 const month = parseInt(monthFilter.value);
                 const transactions = await fetchTransactions(year, month);
                 renderTransactions(transactions);
-                renderPieCharts(transactions);
+                renderMonthlyCharts(transactions);
                 await updateSummary(transactions);
             } else { // yearly
                 summaryYearText.textContent = yearFilter.options[yearFilter.selectedIndex].text;
