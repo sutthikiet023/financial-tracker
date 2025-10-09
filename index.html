@@ -103,6 +103,7 @@
                 <div class="flex gap-2 w-full md:w-auto">
                     <button id="get-ai-insight-btn" class="w-full md:w-auto bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition duration-300 text-sm">วิเคราะห์ด้วย AI</button>
                     <button id="manage-categories-btn" class="w-full md:w-auto bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">จัดการหมวดหมู่</button>
+                    <button id="settings-btn" class="w-full md:w-auto bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition duration-300 text-sm">ตั้งค่า</button>
                 </div>
             </section>
             
@@ -303,6 +304,31 @@
         </div>
     </div>
 
+    <!-- API Key Modal -->
+    <div id="api-key-modal" class="hidden fixed z-40 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+            <div class="bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">ตั้งค่า API Key</h3>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-500 mb-2">
+                            ฟีเจอร์วิเคราะห์ด้วย AI จำเป็นต้องใช้ Gemini API Key ส่วนตัวของคุณ คุณสามารถรับ Key ได้ฟรีที่
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-600 hover:underline">Google AI Studio</a>.
+                        </p>
+                        <input type="password" id="api-key-input" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" placeholder="กรอก API Key ของคุณที่นี่">
+                        <p id="api-key-error" class="text-red-500 text-xs mt-1 hidden"></p>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="save-api-key-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 sm:ml-3 sm:w-auto sm:text-sm">บันทึก</button>
+                    <button type="button" id="cancel-api-key-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Custom Alert Modal -->
     <div id="custom-alert-modal" class="hidden fixed z-30 inset-0 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -476,6 +502,7 @@
         const editDescription = document.getElementById('edit-description');
 
         const getAiInsightBtn = document.getElementById('get-ai-insight-btn');
+        const settingsBtn = document.getElementById('settings-btn');
         const aiInsightModal = document.getElementById('ai-insight-modal');
         const closeAiInsightModalBtn = document.getElementById('close-ai-insight-modal');
         const aiInsightLoader = document.getElementById('ai-insight-loader');
@@ -484,6 +511,12 @@
         const incomePieChartCanvas = document.getElementById('income-pie-chart');
         const expensePieChartCanvas = document.getElementById('expense-pie-chart');
         const paymentPieChartCanvas = document.getElementById('payment-pie-chart');
+
+        const apiKeyModal = document.getElementById('api-key-modal');
+        const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+        const cancelApiKeyBtn = document.getElementById('cancel-api-key-btn');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const apiKeyError = document.getElementById('api-key-error');
 
         const customAlertModal = document.getElementById('custom-alert-modal');
         const customAlertMessage = document.getElementById('custom-alert-message');
@@ -507,6 +540,7 @@
         let expensePieChartInstance = null;
         let paymentMethodPieChartInstance = null;
         let allCategoriesMap = new Map();
+        const GEMINI_API_KEY_STORAGE = 'gemini-api-key';
 
         // --- Custom Modals ---
         function showAlert(message) {
@@ -572,6 +606,11 @@
         function formatNumber(num) {
             return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
+        
+        function getApiKey() { return localStorage.getItem(GEMINI_API_KEY_STORAGE); }
+        function setApiKey(key) { localStorage.setItem(GEMINI_API_KEY_STORAGE, key); }
+        function clearApiKey() { localStorage.removeItem(GEMINI_API_KEY_STORAGE); }
+
 
         // --- Authentication ---
         function showAuthError(message) {
@@ -606,8 +645,10 @@
         });
 
         // --- Gemini API ---
-        async function callGemini(prompt, retries = 3, delay = 1000) {
-            const apiKey = ""; // Provided by the environment
+        async function callGemini(prompt, apiKey, retries = 3, delay = 1000) {
+            if (!apiKey) {
+                return "ข้อผิดพลาด: ไม่พบ API Key กรุณาตั้งค่าก่อนใช้งาน";
+            }
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             const systemPrompt = `คุณคือผู้ช่วยทางการเงินที่เป็นมิตรและเชี่ยวชาญ
@@ -630,6 +671,11 @@
                         body: JSON.stringify(payload)
                     });
 
+                    if (response.status === 400 || response.status === 403) {
+                        clearApiKey();
+                        throw new Error('Invalid API Key');
+                    }
+
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -640,10 +686,17 @@
                     if (candidate && candidate.content?.parts?.[0]?.text) {
                         return candidate.content.parts[0].text;
                     } else {
+                        // Handle cases of empty or unexpected successful response
+                        if (candidate && candidate.finishReason && candidate.finishReason !== "STOP") {
+                           throw new Error(`API call finished with reason: ${candidate.finishReason}`);
+                        }
                         throw new Error('Invalid response structure from Gemini API');
                     }
                 } catch (error) {
                     console.error(`Gemini API call attempt ${i + 1} failed:`, error);
+                    if (error.message === 'Invalid API Key') {
+                        throw error; // Re-throw the specific error to be caught by the caller
+                    }
                     if (i === retries - 1) { // Last retry
                         return "ขออภัยค่ะ เกิดข้อผิดพลาดในการติดต่อกับ AI โปรดลองใหม่อีกครั้ง";
                     }
@@ -1141,17 +1194,17 @@
         closeCategoryModalBtn.addEventListener('click', () => categoryModal.classList.add('hidden'));
         closeEditModalBtn.addEventListener('click', () => editTransactionModal.classList.add('hidden'));
 
-        getAiInsightBtn.addEventListener('click', async () => {
+        async function performAiAnalysis(apiKey) {
             aiInsightContent.innerHTML = '';
             aiInsightLoader.style.display = 'block';
             aiInsightModal.classList.remove('hidden');
 
             const year = parseInt(yearFilter.value);
             const month = parseInt(monthFilter.value);
-            const viewPeriod = currentView === 'monthly' 
+            const viewPeriod = currentView === 'monthly'
                 ? `${monthFilter.options[monthFilter.selectedIndex].text} ${yearFilter.options[yearFilter.selectedIndex].text}`
                 : `ปี ${yearFilter.options[yearFilter.selectedIndex].text}`;
-                
+            
             const transactions = currentView === 'monthly'
                 ? await fetchTransactions(year, month)
                 : await fetchYearlyTransactions(year);
@@ -1165,14 +1218,67 @@
             const promptData = formatForAI(transactions);
             const prompt = `นี่คือข้อมูลการเงินของฉันสำหรับ ${viewPeriod}:\n\n${promptData}\n\nช่วยวิเคราะห์และให้คำแนะนำหน่อย`;
             
-            const result = await callGemini(prompt);
-            
-            let htmlResult = result
-                .replace(/## (.*)/g, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
-                .replace(/\* (.*)/g, '<li>$1</li>');
+            try {
+                const result = await callGemini(prompt, apiKey);
+                
+                let htmlResult = result
+                    .replace(/## (.*)/g, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
+                    .replace(/\* (.*)/g, '<li>$1</li>');
 
-            aiInsightContent.innerHTML = htmlResult;
-            aiInsightLoader.style.display = 'none';
+                aiInsightContent.innerHTML = htmlResult;
+            } catch (error) {
+                if (error.message === 'Invalid API Key') {
+                    aiInsightModal.classList.add('hidden'); // Hide the analysis modal
+                    showAlert("API Key ที่บันทึกไว้ไม่ถูกต้อง กรุณาตั้งค่าใหม่อีกครั้ง");
+                    apiKeyModal.classList.remove('hidden'); // Show the key input modal again
+                } else {
+                     aiInsightContent.innerText = "เกิดข้อผิดพลาดในการวิเคราะห์ข้อมูล โปรดลองอีกครั้ง";
+                }
+            } finally {
+                aiInsightLoader.style.display = 'none';
+            }
+        }
+
+
+        getAiInsightBtn.addEventListener('click', async () => {
+            let apiKey = getApiKey();
+            if (!apiKey) {
+                apiKeyModal.classList.remove('hidden');
+                return;
+            }
+            await performAiAnalysis(apiKey);
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            const currentKey = getApiKey();
+            if (currentKey) {
+                apiKeyInput.value = currentKey;
+            } else {
+                apiKeyInput.value = '';
+            }
+            apiKeyModal.classList.remove('hidden');
+        });
+
+        saveApiKeyBtn.addEventListener('click', () => {
+            const newKey = apiKeyInput.value.trim();
+            if (newKey) {
+                setApiKey(newKey);
+                apiKeyModal.classList.add('hidden');
+                apiKeyInput.value = '';
+                apiKeyError.classList.add('hidden');
+                showAlert('บันทึก API Key เรียบร้อยแล้ว');
+                // Optional: immediately trigger analysis after saving a new key
+                // performAiAnalysis(newKey);
+            } else {
+                apiKeyError.textContent = "กรุณากรอก API Key";
+                apiKeyError.classList.remove('hidden');
+            }
+        });
+
+        cancelApiKeyBtn.addEventListener('click', () => {
+            apiKeyModal.classList.add('hidden');
+            apiKeyInput.value = '';
+            apiKeyError.classList.add('hidden');
         });
 
         closeAiInsightModalBtn.addEventListener('click', () => {
