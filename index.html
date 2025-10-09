@@ -303,6 +303,82 @@
         </div>
     </div>
 
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="hidden fixed z-30 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">ข้อความ</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500" id="custom-alert-message"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="custom-alert-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">ตกลง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="hidden fixed z-30 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+            <div class="bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">ยืนยันการกระทำ</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500" id="custom-confirm-message"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="custom-confirm-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">ยืนยัน</button>
+                    <button type="button" id="custom-confirm-cancel-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Prompt Modal -->
+    <div id="custom-prompt-modal" class="hidden fixed z-30 inset-0 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75"></div>
+            <div class="bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="custom-prompt-title">กรอกข้อมูล</h3>
+                    <div class="mt-2">
+                        <p class="text-sm text-gray-500 mb-2" id="custom-prompt-message"></p>
+                        <input type="text" id="custom-prompt-input" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="custom-prompt-ok-btn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 sm:ml-3 sm:w-auto sm:text-sm">ตกลง</button>
+                    <button type="button" id="custom-prompt-cancel-btn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">ยกเลิก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module">
         // --- SUPABASE SETUP ---
@@ -409,6 +485,21 @@
         const expensePieChartCanvas = document.getElementById('expense-pie-chart');
         const paymentPieChartCanvas = document.getElementById('payment-pie-chart');
 
+        const customAlertModal = document.getElementById('custom-alert-modal');
+        const customAlertMessage = document.getElementById('custom-alert-message');
+        const customAlertOkBtn = document.getElementById('custom-alert-ok-btn');
+
+        const customConfirmModal = document.getElementById('custom-confirm-modal');
+        const customConfirmMessage = document.getElementById('custom-confirm-message');
+        const customConfirmOkBtn = document.getElementById('custom-confirm-ok-btn');
+        const customConfirmCancelBtn = document.getElementById('custom-confirm-cancel-btn');
+
+        const customPromptModal = document.getElementById('custom-prompt-modal');
+        const customPromptMessage = document.getElementById('custom-prompt-message');
+        const customPromptInput = document.getElementById('custom-prompt-input');
+        const customPromptOkBtn = document.getElementById('custom-prompt-ok-btn');
+        const customPromptCancelBtn = document.getElementById('custom-prompt-cancel-btn');
+
         let currentUser = null;
         let currentView = 'monthly';
         let yearlyChartInstance = null;
@@ -416,6 +507,66 @@
         let expensePieChartInstance = null;
         let paymentMethodPieChartInstance = null;
         let allCategoriesMap = new Map();
+
+        // --- Custom Modals ---
+        function showAlert(message) {
+            customAlertMessage.textContent = message;
+            customAlertModal.classList.remove('hidden');
+        }
+        customAlertOkBtn.addEventListener('click', () => {
+            customAlertModal.classList.add('hidden');
+        });
+
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                customConfirmMessage.textContent = message;
+                customConfirmModal.classList.remove('hidden');
+                
+                const okListener = () => {
+                    customConfirmModal.classList.add('hidden');
+                    customConfirmOkBtn.removeEventListener('click', okListener);
+                    customConfirmCancelBtn.removeEventListener('click', cancelListener);
+                    resolve(true);
+                };
+                
+                const cancelListener = () => {
+                    customConfirmModal.classList.add('hidden');
+                    customConfirmOkBtn.removeEventListener('click', okListener);
+                    customConfirmCancelBtn.removeEventListener('click', cancelListener);
+                    resolve(false);
+                };
+                
+                customConfirmOkBtn.addEventListener('click', okListener);
+                customConfirmCancelBtn.addEventListener('click', cancelListener);
+            });
+        }
+
+        function showPrompt(message, defaultValue = '') {
+            return new Promise((resolve) => {
+                customPromptMessage.textContent = message;
+                customPromptInput.value = defaultValue;
+                customPromptModal.classList.remove('hidden');
+                customPromptInput.focus();
+                
+                const okListener = () => {
+                    customPromptModal.classList.add('hidden');
+                    customPromptOkBtn.removeEventListener('click', okListener);
+                    customPromptCancelBtn.removeEventListener('click', cancelListener);
+                    resolve(customPromptInput.value);
+                };
+                
+                const cancelListener = () => {
+                    customPromptModal.classList.add('hidden');
+                    customPromptOkBtn.removeEventListener('click', okListener);
+                    customPromptCancelBtn.removeEventListener('click', cancelListener);
+                    resolve(null); // Emulate prompt's cancel behavior
+                };
+                
+                customPromptOkBtn.addEventListener('click', okListener);
+                customPromptCancelBtn.addEventListener('click', cancelListener);
+            });
+        }
+
 
         // --- Helpers ---
         function formatNumber(num) {
@@ -841,7 +992,7 @@
             if (!currentUser) return;
             const formData = new FormData(transactionForm);
             if (!formData.get('category')) {
-                alert('กรุณาเลือกหมวดหมู่');
+                showAlert('กรุณาเลือกหมวดหมู่');
                 return;
             }
             const newTransaction = {
@@ -858,8 +1009,10 @@
             }
 
             const { error } = await db.from('transactions').insert(newTransaction);
-            if (error) { console.error('Error adding transaction:', error); alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); } 
-            else {
+            if (error) { 
+                console.error('Error adding transaction:', error); 
+                showAlert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); 
+            } else {
                 transactionForm.reset();
                 document.getElementById('date').value = new Date().toISOString().split('T')[0];
                 await fetchAndRenderData();
@@ -883,8 +1036,6 @@
             if (!transactionId) return;
 
             if (e.target.classList.contains('delete-btn')) {
-                // Removed confirm() as it may not work in all environments.
-                // The delete operation will be immediate.
                 const { error } = await db.from('transactions').delete().eq('id', transactionId);
                 if (error) {
                     console.error('Error deleting transaction:', error);
@@ -909,28 +1060,38 @@
             const id = editTransactionId.value;
             const updatedData = { amount: parseFloat(editAmount.value), date: editDate.value, description: editDescription.value };
             const { error } = await db.from('transactions').update(updatedData).eq('id', id);
-            if(error) { console.error('Error updating transaction:', error); alert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล'); } 
-            else {
+            if(error) { 
+                console.error('Error updating transaction:', error); 
+                showAlert('เกิดข้อผิดพลาดในการอัปเดตข้อมูล'); 
+            } else {
                 editTransactionModal.classList.add('hidden');
                 await fetchAndRenderData();
             }
         });
 
         async function handleAddCategory(type, parent_id = null) {
-            const name = prompt(`กรุณาใส่ชื่อหมวดหมู่${parent_id ? 'ย่อย' : 'หลัก'}ใหม่:`);
+            const name = await showPrompt(`กรุณาใส่ชื่อหมวดหมู่${parent_id ? 'ย่อย' : 'หลัก'}ใหม่:`);
             if (!name || !currentUser) return;
             const { error } = await db.from('categories').insert({ name, type, user_id: currentUser.id, parent_id });
-            if (error) { console.error('Error adding category:', error); alert('เกิดข้อผิดพลาด'); }
-            else { await fetchAndRenderData(); }
+            if (error) { 
+                console.error('Error adding category:', error); 
+                showAlert('เกิดข้อผิดพลาด'); 
+            } else { 
+                await fetchAndRenderData(); 
+            }
         }
 
         async function handleEditCategory(id) {
             const currentName = allCategoriesMap.get(id)?.name || '';
-            const newName = prompt('กรุณาใส่ชื่อใหม่:', currentName);
+            const newName = await showPrompt('กรุณาใส่ชื่อใหม่:', currentName);
             if (!newName || newName === currentName) return;
             const { error } = await db.from('categories').update({ name: newName }).eq('id', id);
-            if (error) { console.error('Error editing category:', error); alert('เกิดข้อผิดพลาด'); }
-            else { await fetchAndRenderData(); }
+            if (error) { 
+                console.error('Error editing category:', error); 
+                showAlert('เกิดข้อผิดพลาด'); 
+            } else { 
+                await fetchAndRenderData(); 
+            }
         }
 
         async function handleDeleteCategory(id) {
@@ -939,14 +1100,19 @@
             
             const hasSubcategories = Array.from(allCategoriesMap.values()).some(c => c.parent_id === id);
             if (hasSubcategories) {
-                alert('ไม่สามารถลบหมวดหมู่หลักที่มีหมวดหมู่ย่อยอยู่ได้ กรุณาลบหมวดหมู่ย่อยทั้งหมดก่อน');
+                showAlert('ไม่สามารถลบหมวดหมู่หลักที่มีหมวดหมู่ย่อยอยู่ได้ กรุณาลบหมวดหมู่ย่อยทั้งหมดก่อน');
                 return;
             }
 
-            if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${category.name}"? การกระทำนี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่"`)) {
+            const confirmed = await showConfirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${category.name}"? การกระทำนี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่"`);
+            if (confirmed) {
                 const { error } = await db.from('categories').delete().eq('id', id);
-                if (error) { console.error('Error deleting category:', error); alert('เกิดข้อผิดพลาด'); }
-                else { await fetchAndRenderData(); }
+                if (error) { 
+                    console.error('Error deleting category:', error); 
+                    showAlert('เกิดข้อผิดพลาด'); 
+                } else { 
+                    await fetchAndRenderData(); 
+                }
             }
         }
         
