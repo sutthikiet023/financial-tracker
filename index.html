@@ -195,11 +195,9 @@
                 <!-- Transactions List -->
                 <section>
                     <h2 class="text-2xl font-bold mb-4">รายการล่าสุด</h2>
-                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                        <div id="transactions-list" class="divide-y divide-gray-200">
-                            <!-- Transactions will be rendered here -->
+                    <div id="transactions-list" class="bg-white rounded-xl shadow-md overflow-hidden relative max-h-[70vh] overflow-auto">
+                        <!-- Transactions will be rendered here -->
                              <p class="p-6 text-center text-gray-500">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>
-                        </div>
                     </div>
                 </section>
             </div>
@@ -863,48 +861,99 @@
         }
 
         function renderTransactions(transactions) {
-            transactionsList.innerHTML = '';
-            if (transactions.length === 0) {
+            transactionsList.innerHTML = ''; // Clear list
+
+            // Step 1: Group data and calculate daily expense totals
+            const dailyData = new Map();
+            for (const tx of transactions) {
+                const txDateStr = new Date(tx.date).toISOString().split('T')[0];
+                
+                if (!dailyData.has(txDateStr)) {
+                    dailyData.set(txDateStr, {
+                        transactions: [],
+                        totalExpense: 0
+                    });
+                }
+                
+                const dayData = dailyData.get(txDateStr);
+                dayData.transactions.push(tx);
+                
+                if (tx.type === 'expense') {
+                    dayData.totalExpense += parseFloat(tx.amount);
+                }
+            }
+
+            // Step 2: Render
+            if (dailyData.size === 0) {
                 transactionsList.innerHTML = `<p class="p-6 text-center text-gray-500">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>`;
                 return;
             }
-            transactions.forEach(tx => {
-                const isIncome = tx.type === 'income';
-                const sign = isIncome ? '+' : '-';
-                const color = isIncome ? 'text-green-600' : 'text-red-600';
-                
-                const paymentMethodHTML = (tx.type === 'expense' && tx.payment_method)
-                    ? `<span class="text-xs px-2 py-0.5 rounded-full ${tx.payment_method === 'credit' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">${tx.payment_method === 'credit' ? 'บัตรเครดิต' : 'เงินสด'}</span>`
-                    : '';
 
-                const txElement = document.createElement('div');
-                txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50';
-                txElement.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                ${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="font-semibold">${getCategoryFullName(tx.category_id)}</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                <p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p>
-                                ${paymentMethodHTML}
-                            </div>
-                            <p class="text-sm text-gray-400 mt-1">${tx.description || ''}</p>
-                        </div>
+            let isFirstGroup = true; // To track the first date separator
+            for (const [txDateStr, dayData] of dailyData.entries()) {
+                // Use T12:00:00Z to avoid timezone shifting issues when creating the date object for formatting
+                const txDateFormatted = new Date(txDateStr + 'T12:00:00Z').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+                
+                // Create Date Header
+                const dateSeparator = document.createElement('div');
+                dateSeparator.className = 'sticky top-0 z-10 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700';
+                
+                if (!isFirstGroup) { // Add border if it's not the very first element
+                    dateSeparator.classList.add('border-t', 'border-gray-200');
+                }
+                
+                // Add flex layout for date and summary
+                dateSeparator.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span>${txDateFormatted}</span>
+                        <span class="font-normal text-red-600 inter">รายจ่าย: ฿${formatNumber(dayData.totalExpense)}</span>
                     </div>
-                    <div class="text-right">
-                        <p class="font-bold text-lg ${color} inter">${sign}฿${formatNumber(tx.amount)}</p>
-                        <div class="mt-1">
-                            <button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button>
-                            <button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button>
+                `;
+                transactionsList.appendChild(dateSeparator);
+
+                // Render transactions for this day
+                for (const tx of dayData.transactions) {
+                    const isIncome = tx.type === 'income';
+                    const sign = isIncome ? '+' : '-';
+                    const color = isIncome ? 'text-green-600' : 'text-red-600';
+                    
+                    const paymentMethodHTML = (tx.type === 'expense' && tx.payment_method)
+                        ? `<span class="text-xs px-2 py-0.5 rounded-full ${tx.payment_method === 'credit' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">${tx.payment_method === 'credit' ? 'บัตรเครดิต' : 'เงินสด'}</span>`
+                        : '';
+
+                    const txElement = document.createElement('div');
+                    txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50 border-t border-gray-200'; // Keep the border-t on each item
+                    
+                    txElement.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    ${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="font-semibold">${getCategoryFullName(tx.category_id)}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p>
+                                    ${paymentMethodHTML}
+                                </div>
+                                <p class="text-sm text-gray-400 mt-1">${tx.description || ''}</p>
+                            </div>
                         </div>
-                    </div>`;
-                transactionsList.appendChild(txElement);
-            });
+                        <div class="text-right">
+                            <p class="font-bold text-lg ${color} inter">${sign}฿${formatNumber(tx.amount)}</p>
+                            <div class="mt-1">
+                                <button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button>
+                                <button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button>
+                            </div>
+                        </div>`;
+                    transactionsList.appendChild(txElement);
+                }
+
+                isFirstGroup = false; // After the first group, all subsequent groups will have a top border
+            }
         }
+
 
         function renderYearlyChart(transactions) {
             const ctx = document.getElementById('yearly-chart').getContext('2d');
