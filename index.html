@@ -602,13 +602,43 @@
 
         // --- Helpers ---
         function formatNumber(num) {
-            return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             // Handle potential null or undefined input gracefully
+             if (num === null || num === undefined) {
+                 return '0.00';
+             }
+             // Ensure it's treated as a number before formatting
+             const numericValue = Number(num);
+             if (isNaN(numericValue)) {
+                 console.warn("Invalid number passed to formatNumber:", num);
+                 return '0.00'; // Or some other placeholder for invalid numbers
+             }
+            return numericValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         
         function getApiKey() { return localStorage.getItem(GEMINI_API_KEY_STORAGE); }
         function setApiKey(key) { localStorage.setItem(GEMINI_API_KEY_STORAGE, key); }
         function clearApiKey() { localStorage.removeItem(GEMINI_API_KEY_STORAGE); }
 
+        /**
+         * Converts a local date string (YYYY-MM-DD) to a UTC Date object.
+         * This prevents timezone shifts when creating new Date objects.
+         * @param {string} dateString - The date string in 'YYYY-MM-DD' format.
+         * @returns {Date} A Date object set to midnight UTC for that date.
+         */
+        function parseLocalDate(dateString) {
+             if (!dateString) return null; // Handle potential null/undefined input
+            const parts = dateString.split('-');
+            if (parts.length !== 3) return null; // Invalid format
+
+            const [year, month, day] = parts.map(Number);
+             // Validate parts
+            if (isNaN(year) || isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+                console.error("Invalid date string provided to parseLocalDate:", dateString);
+                return null; // Return null for invalid dates
+            }
+            // Important: Use Date.UTC to create the date in UTC, preventing timezone offset issues.
+            return new Date(Date.UTC(year, month - 1, day));
+        }
 
         // --- Authentication ---
         function showAuthError(message) {
@@ -639,6 +669,7 @@
                 authContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
+                 isInitialized = false; // Reset init flag on logout
             }
         });
 
@@ -763,17 +794,33 @@
             
             for (const category of map.values()) {
                 if (category.parent_id) {
-                    map.get(category.parent_id)?.subcategories.push(category);
+                    // Check if parent exists before pushing
+                    const parent = map.get(category.parent_id);
+                    if (parent) {
+                        parent.subcategories.push(category);
+                    } else {
+                         // console.warn(`Parent category with ID ${category.parent_id} not found for subcategory ID ${category.id}. Treating as main category.`);
+                         structured.push(category); // Treat orphan as main category
+                    }
                 } else {
                     structured.push(category);
                 }
             }
+             // Sort main categories
+             structured.sort((a, b) => a.name.localeCompare(b.name, 'th')); // Sort Thai correctly
+            
+             // Sort subcategories within each main category
+             for (const mainCat of structured) {
+                 mainCat.subcategories.sort((a, b) => a.name.localeCompare(b.name, 'th'));
+             }
+
             return structured;
         }
 
+
         async function fetchAllCategories() {
             if (!currentUser) return [];
-            const { data, error } = await db.from('categories').select('*').eq('user_id', currentUser.id).order('name');
+            const { data, error } = await db.from('categories').select('*').eq('user_id', currentUser.id); // Remove order here, will sort in structureCategories
             if (error) {
                 console.error('Error fetching all categories:', error);
                 return [];
@@ -784,25 +831,60 @@
 
         async function fetchTransactions(year, month) {
             if (!currentUser) return [];
+            
+            // Calculate start date (YYYY-MM-01)
             const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-            const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-            const { data, error } = await db.from('transactions').select('*, category_id').eq('user_id', currentUser.id).gte('date', startDate).lte('date', endDate).order('date', { ascending: false });
-            if (error) { console.error('Error fetching transactions:', error); return []; }
+
+            // Calculate the start date of the *next* month
+            let nextMonth = month + 1;
+            let nextMonthYear = year;
+            if (nextMonth > 12) {
+                nextMonth = 1;
+                nextMonthYear += 1;
+            }
+            // Format as YYYY-MM-01 for the exclusive end date
+            const endDateExclusive = `${nextMonthYear}-${String(nextMonth).padStart(2, '0')}-01`;
+           
+            // console.log(`Fetching transactions from ${startDate} up to (but not including) ${endDateExclusive}`); // Debug log
+
+            const { data, error } = await db.from('transactions')
+                .select('*, category_id')
+                .eq('user_id', currentUser.id)
+                .gte('date', startDate)         // Greater than or equal to the first day of the month
+                .lt('date', endDateExclusive)    // Less than the first day of the next month
+                .order('date', { ascending: false }) // Keep this order for grouping logic later
+                .order('created_at', { ascending: false }); // Add secondary sort by creation time
+                
+            if (error) { 
+                console.error('Error fetching transactions:', error); 
+                return []; 
+            }
+            // console.log('Fetched transactions:', data); // Debug log
             return data;
         }
+
 
         async function fetchYearlyTransactions(year) {
             if (!currentUser) return [];
             const startDate = `${year}-01-01`;
-            const endDate = `${year}-12-31`;
-            const { data, error } = await db.from('transactions').select('*').eq('user_id', currentUser.id).gte('date', startDate).lte('date', endDate);
+            const endDate = `${year}-12-31`; // For yearly, inclusive end date is fine
+            const { data, error } = await db.from('transactions')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .gte('date', startDate)
+                .lte('date', endDate)
+                .order('date', { ascending: false }) // Order yearly results too if needed
+                .order('created_at', { ascending: false });
             if (error) { console.error('Error fetching yearly transactions:', error); return []; }
             return data;
         }
         
         function renderCategoryDropdown(structuredCategories, type) {
             categorySelect.innerHTML = '<option value="">-- เลือกหมวดหมู่ --</option>';
-            const categoriesForType = structuredCategories.filter(c => c.type === type);
+            // Filter and sort main categories for the dropdown
+            const categoriesForType = structuredCategories
+                .filter(c => c.type === type)
+                .sort((a, b) => a.name.localeCompare(b.name, 'th')); 
             
             categoriesForType.forEach(mainCat => {
                 const mainOption = document.createElement('option');
@@ -810,17 +892,21 @@
                 mainOption.textContent = mainCat.name;
                 categorySelect.appendChild(mainOption);
                 
+                // Subcategories are already sorted within structureCategories
                 mainCat.subcategories.forEach(subCat => {
                     const subOption = document.createElement('option');
                     subOption.value = subCat.id;
-                    subOption.textContent = `  - ${subCat.name}`;
+                    subOption.textContent = `  - ${subCat.name}`; // Indent subcategories
                     categorySelect.appendChild(subOption);
                 });
             });
         }
+
         
         function categoryListItemHTML(category, isSub = false) {
+             // Subcategories are already sorted by structureCategories
              const subCategoryList = category.subcategories.map(sub => categoryListItemHTML(sub, true)).join('');
+             
             return `
                 <div class="${isSub ? 'ml-4' : ''} py-1 group">
                     <div class="flex justify-between items-center">
@@ -838,35 +924,62 @@
 
         async function renderCategoriesUI() {
             const allCategories = await fetchAllCategories();
-            const structured = structureCategories(allCategories);
+            const structured = structureCategories(allCategories); // structureCategories now handles sorting
 
-            const incomeCats = structured.filter(c => c.type === 'income');
-            const expenseCats = structured.filter(c => c.type === 'expense');
+            const incomeCats = structured.filter(c => c.type === 'income'); // Already sorted
+            const expenseCats = structured.filter(c => c.type === 'expense'); // Already sorted
 
             incomeCategoriesList.innerHTML = incomeCats.map(c => categoryListItemHTML(c)).join('') || '<p class="text-sm text-gray-500">ไม่มีหมวดหมู่รายรับ</p>';
             expenseCategoriesList.innerHTML = expenseCats.map(c => categoryListItemHTML(c)).join('') || '<p class="text-sm text-gray-500">ไม่มีหมวดหมู่รายจ่าย</p>';
 
             const selectedType = document.querySelector('input[name="type"]:checked').value;
-            renderCategoryDropdown(structured, selectedType);
+            renderCategoryDropdown(structured, selectedType); // Pass the already sorted structured data
         }
+
 
         function getCategoryFullName(categoryId) {
             if (!categoryId || !allCategoriesMap.has(categoryId)) return 'ไม่มีหมวดหมู่';
             const category = allCategoriesMap.get(categoryId);
             if (category.parent_id && allCategoriesMap.has(category.parent_id)) {
                 const parent = allCategoriesMap.get(category.parent_id);
-                return `${parent.name} → ${category.name}`;
+                 // Ensure parent category exists before trying to access its name
+                 if (parent) {
+                    return `${parent.name} → ${category.name}`;
+                 } else {
+                     console.warn(`Parent category ${category.parent_id} not found for category ${category.id}`);
+                     return category.name; // Fallback to just subcategory name if parent is missing
+                 }
             }
             return category.name;
         }
 
+        // --- Date Formatting Helpers (Simplified) ---
+        const monthsThaiLong = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        const monthsThaiShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+        function formatDateThaiLong(dateStr) { // dateStr is YYYY-MM-DD
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-').map(Number);
+            if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12) return dateStr; // Fallback with basic month check
+            return `${d} ${monthsThaiLong[m - 1]} ${y + 543}`;
+        }
+        function formatDateThaiShort(dateStr) { // dateStr is YYYY-MM-DD
+             if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-').map(Number);
+             if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12) return dateStr; // Fallback with basic month check
+            return `${d} ${monthsThaiShort[m - 1]} ${y + 543}`;
+        }
+        // --- End Date Formatting Helpers ---
+
+
         function renderTransactions(transactions) {
             transactionsList.innerHTML = ''; // Clear list
+            transactionsList.className = 'relative max-h-[70vh] overflow-auto divide-y divide-gray-200'; // Reset class for list container
 
             // Step 1: Group data and calculate daily expense totals
             const dailyData = new Map();
             for (const tx of transactions) {
-                const txDateStr = new Date(tx.date).toISOString().split('T')[0];
+                const txDateStr = tx.date; // Use the 'YYYY-MM-DD' string directly
                 
                 if (!dailyData.has(txDateStr)) {
                     dailyData.set(txDateStr, {
@@ -876,30 +989,41 @@
                 }
                 
                 const dayData = dailyData.get(txDateStr);
-                dayData.transactions.push(tx);
+                dayData.transactions.push(tx); // Add transaction to the correct date group
                 
                 if (tx.type === 'expense') {
                     dayData.totalExpense += parseFloat(tx.amount);
                 }
             }
+             // console.log("Grouped daily data:", dailyData); // Debug log
+
 
             // Step 2: Render
             if (dailyData.size === 0) {
-                transactionsList.innerHTML = `<p class="p-6 text-center text-gray-500">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>`;
+                transactionsList.innerHTML = `<p class="p-6 text-center text-gray-500 bg-white rounded-xl shadow-md">ไม่มีข้อมูลสำหรับเดือนที่เลือก</p>`; // Add styling back for empty message
                 return;
             }
 
+            // Since the query orders by date descending, the Map should roughly reflect this order.
+            // Convert Map to array and sort explicitly just in case.
+            const sortedDays = Array.from(dailyData.entries()).sort((a, b) => b[0].localeCompare(a[0])); // Sort YYYY-MM-DD descending
+
+
             let isFirstGroup = true; // To track the first date separator
-            for (const [txDateStr, dayData] of dailyData.entries()) {
-                // Use T12:00:00Z to avoid timezone shifting issues when creating the date object for formatting
-                const txDateFormatted = new Date(txDateStr + 'T12:00:00Z').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+            for (const [txDateStr, dayData] of sortedDays) { // Use sorted array
+            
+                const txDateFormatted = formatDateThaiLong(txDateStr);
                 
                 // Create Date Header
                 const dateSeparator = document.createElement('div');
-                dateSeparator.className = 'sticky top-0 z-10 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700';
+                // Make header sticky, give background, padding, font style, and ensure it's above items
+                dateSeparator.className = 'sticky top-0 z-10 bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700'; 
                 
                 if (!isFirstGroup) { // Add border if it's not the very first element
                     dateSeparator.classList.add('border-t', 'border-gray-200');
+                } else {
+                     // Add rounded top corners to the very first header
+                     dateSeparator.classList.add('rounded-t-xl');
                 }
                 
                 // Add flex layout for date and summary
@@ -912,7 +1036,10 @@
                 transactionsList.appendChild(dateSeparator);
 
                 // Render transactions for this day
-                for (const tx of dayData.transactions) {
+                // Sort transactions within the day by creation time (descending) as fetched
+                 // dayData.transactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Already sorted by query
+
+                dayData.transactions.forEach((tx, index) => {
                     const isIncome = tx.type === 'income';
                     const sign = isIncome ? '+' : '-';
                     const color = isIncome ? 'text-green-600' : 'text-red-600';
@@ -922,36 +1049,47 @@
                         : '';
 
                     const txElement = document.createElement('div');
-                    txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50 border-t border-gray-200'; // Keep the border-t on each item
+                    // Item styling: padding, flex layout, background, border top (always present now)
+                    txElement.className = 'p-4 flex items-center justify-between hover:bg-gray-50 border-t border-gray-200 bg-white'; 
                     
+                    const itemDateFormatted = formatDateThaiShort(tx.date);
+
+                    // REMOVED INVALID COMMENTS FROM THIS INNERHTML SECTION
                     txElement.innerHTML = `
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center">
+                        <div class="flex items-center gap-4 min-w-0"> 
+                            <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     ${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}
                                 </svg>
                             </div>
-                            <div>
-                                <p class="font-semibold">${getCategoryFullName(tx.category_id)}</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <p class="text-sm text-gray-500">${new Date(tx.date).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric'})}</p>
+                            <div class="flex-grow min-w-0"> 
+                                <p class="font-semibold truncate">${getCategoryFullName(tx.category_id)}</p> 
+                                <div class="flex items-center gap-2 mt-1 flex-wrap"> 
+                                    <p class="text-sm text-gray-500 whitespace-nowrap">${itemDateFormatted}</p>
                                     ${paymentMethodHTML}
                                 </div>
-                                <p class="text-sm text-gray-400 mt-1">${tx.description || ''}</p>
+                                <p class="text-sm text-gray-400 mt-1 break-words">${tx.description || ''}</p> 
                             </div>
                         </div>
-                        <div class="text-right">
-                            <p class="font-bold text-lg ${color} inter">${sign}฿${formatNumber(tx.amount)}</p>
+                        <div class="text-right ml-4 flex-shrink-0"> 
+                            <p class="font-bold text-lg ${color} inter whitespace-nowrap">${sign}฿${formatNumber(tx.amount)}</p>
                             <div class="mt-1">
                                 <button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button>
                                 <button data-id="${tx.id}" class="delete-btn text-red-500 hover:text-red-700 text-xs">ลบ</button>
                             </div>
                         </div>`;
                     transactionsList.appendChild(txElement);
-                }
+                }); // End loop for transactions within a day
 
                 isFirstGroup = false; // After the first group, all subsequent groups will have a top border
-            }
+            } // End loop for days
+
+             // Add rounded bottom corners to the container or the last item if needed
+             const lastItem = transactionsList.lastElementChild;
+             if (lastItem && lastItem.tagName === 'DIV' && !lastItem.classList.contains('sticky')) {
+                 lastItem.classList.add('rounded-b-xl');
+             }
+
         }
 
 
@@ -959,7 +1097,9 @@
             const ctx = document.getElementById('yearly-chart').getContext('2d');
             const monthlyData = { income: Array(12).fill(0), expense: Array(12).fill(0), };
             transactions.forEach(tx => {
-                const monthIndex = new Date(tx.date).getMonth();
+                const dateObj = parseLocalDate(tx.date);
+                if (!dateObj) return; // Skip if date is invalid
+                const monthIndex = dateObj.getUTCMonth(); // Use UTC month
                 if (tx.type === 'income') { monthlyData.income[monthIndex] += parseFloat(tx.amount); } 
                 else { monthlyData.expense[monthIndex] += parseFloat(tx.amount); }
             });
@@ -989,7 +1129,17 @@
                 if (!category) return;
                 const mainCategoryId = category.parent_id || category.id;
                 const mainCategory = allCategoriesMap.get(mainCategoryId);
-                if (!mainCategory) return;
+                 // If the main category itself isn't found (e.g., parent deleted), skip or handle gracefully
+                 if (!mainCategory) {
+                     console.warn(`Main category not found for transaction ID ${tx.id}, category ID ${tx.category_id}`);
+                     const categoryName = 'หมวดหมู่ไม่ทราบ'; // Fallback name
+                     if (tx.type === 'income') {
+                         incomeData[categoryName] = (incomeData[categoryName] || 0) + parseFloat(tx.amount);
+                     } else {
+                         expenseData[categoryName] = (expenseData[categoryName] || 0) + parseFloat(tx.amount);
+                     }
+                     return; 
+                 }
                 const amount = parseFloat(tx.amount);
                 if (tx.type === 'income') {
                     incomeData[mainCategory.name] = (incomeData[mainCategory.name] || 0) + amount;
@@ -1006,9 +1156,11 @@
             const paymentColors = { 'เงินสด': '#10B981', 'บัตรเครดิต': '#3B82F6'};
 
             function createPieChart(canvas, title, data, colors = pieColors) {
+                 if (!canvas) return null; // Add check if canvas exists
                 const labels = Object.keys(data);
                 const values = Object.values(data);
                 const ctx = canvas.getContext('2d');
+                 if (!ctx) return null; // Exit if canvas context is not available
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 if (labels.length === 0) {
@@ -1021,7 +1173,7 @@
                 
                 const backgroundColors = Array.isArray(colors) 
                     ? labels.map((_, i) => colors[i % colors.length])
-                    : labels.map(label => colors[label]);
+                    : labels.map(label => colors[label] || '#CCCCCC'); // Provide a default color
 
                 return new Chart(ctx, {
                     type: 'pie',
@@ -1058,8 +1210,9 @@
             totalCashExpenseEl.textContent = `฿${formatNumber(cashExpense)}`;
             totalCreditExpenseEl.textContent = `฿${formatNumber(creditExpense)}`;
 
-            const year = yearFilter.options[yearFilter.selectedIndex].text;
-            const baseTitle = currentView === 'monthly' ? `เดือนนี้` : `ปี ${year}`;
+             // Ensure yearFilter.options has elements before accessing selectedIndex
+            const selectedYearText = yearFilter.options.length > 0 ? yearFilter.options[yearFilter.selectedIndex].text : new Date().getFullYear() + 543;
+            const baseTitle = currentView === 'monthly' ? `เดือนนี้` : `ปี ${selectedYearText}`;
             incomeCardTitle.textContent = `รายรับ ${baseTitle}`;
             expenseCardTitle.textContent = `รายจ่าย ${baseTitle}`;
             
@@ -1071,17 +1224,29 @@
         }
 
         async function fetchAndRenderData() {
+            if (!yearFilter || !yearFilter.value) {
+                console.warn("Year filter not ready yet.");
+                return; // Exit if filters are not populated
+            }
             const year = parseInt(yearFilter.value);
-            await renderCategoriesUI();
+            
+            // Fetch categories first as they might be needed for rendering dropdowns and names
+             await fetchAllCategories(); // Ensure allCategoriesMap is populated
+             await renderCategoriesUI(); // Render UI that depends on categories
 
             if (currentView === 'monthly') {
+                 if (!monthFilter || !monthFilter.value) {
+                    console.warn("Month filter not ready yet.");
+                    return; // Exit if filters are not populated
+                 }
                 const month = parseInt(monthFilter.value);
                 const transactions = await fetchTransactions(year, month);
                 renderTransactions(transactions);
                 renderMonthlyCharts(transactions);
                 await updateSummary(transactions);
             } else { // yearly
-                summaryYearText.textContent = yearFilter.options[yearFilter.selectedIndex].text;
+                const selectedYearText = yearFilter.options.length > 0 ? yearFilter.options[yearFilter.selectedIndex].text : year + 543;
+                summaryYearText.textContent = selectedYearText;
                 const transactions = await fetchYearlyTransactions(year);
                 renderYearlyChart(transactions);
                 await updateSummary(transactions);
@@ -1093,16 +1258,23 @@
             e.preventDefault();
             if (!currentUser) return;
             const formData = new FormData(transactionForm);
-            if (!formData.get('category')) {
+            const selectedCategory = formData.get('category');
+            if (!selectedCategory) {
                 showAlert('กรุณาเลือกหมวดหมู่');
                 return;
             }
+            const amountValue = parseFloat(formData.get('amount'));
+             if (isNaN(amountValue) || amountValue <= 0) {
+                 showAlert('กรุณากรอกจำนวนเงินที่ถูกต้อง (ต้องมากกว่า 0)');
+                 return;
+             }
+
             const newTransaction = {
                 date: formData.get('date'),
                 description: formData.get('description'),
-                amount: parseFloat(formData.get('amount')),
+                amount: amountValue,
                 type: formData.get('type'),
-                category_id: parseInt(formData.get('category')),
+                category_id: parseInt(selectedCategory), // Use the selected value
                 user_id: currentUser.id,
             };
 
@@ -1116,8 +1288,29 @@
                 showAlert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); 
             } else {
                 transactionForm.reset();
-                document.getElementById('date').value = new Date().toISOString().split('T')[0];
-                await fetchAndRenderData();
+                 // Reset category dropdown to default state after successful submission
+                categorySelect.value = ""; // Set to the default empty value
+                 // Re-render dropdown based on the current type selection
+                 const currentType = document.querySelector('input[name="type"]:checked').value;
+                 // We need categories data to re-render the dropdown correctly
+                 const allCats = await fetchAllCategories(); // Fetch might be redundant if fetchAndRenderData does it, but safer here
+                 const structuredCats = structureCategories(allCats);
+                 renderCategoryDropdown(structuredCats, currentType);
+
+                // Set default type back to income and hide payment method
+                document.getElementById('type-income').checked = true;
+                paymentMethodContainer.classList.add('hidden');
+
+                // Keep the date input as the previously selected date or default to today
+                const currentDateValue = document.getElementById('date').value;
+                 if (!currentDateValue) {
+                     const now = new Date();
+                     const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                     document.getElementById('date').value = localDate;
+                 } else {
+                     document.getElementById('date').value = currentDateValue; // Keep existing date if user has set one
+                 }
+                await fetchAndRenderData(); // Refresh list and summaries
             }
         });
 
@@ -1134,21 +1327,31 @@
         }));
 
         transactionsList.addEventListener('click', async (e) => {
-            const transactionId = e.target.dataset.id;
-            if (!transactionId) return;
+            const button = e.target.closest('button');
+            if (!button || !button.dataset.id) return;
+            
+            const transactionId = button.dataset.id;
 
-            if (e.target.classList.contains('delete-btn')) {
-                const { error } = await db.from('transactions').delete().eq('id', transactionId);
-                if (error) {
-                    console.error('Error deleting transaction:', error);
-                } else {
-                    await fetchAndRenderData();
-                }
+            if (button.classList.contains('delete-btn')) {
+                 const confirmed = await showConfirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?");
+                 if (confirmed) {
+                    const { error } = await db.from('transactions').delete().eq('id', transactionId);
+                    if (error) {
+                        console.error('Error deleting transaction:', error);
+                        showAlert('เกิดข้อผิดพลาดในการลบข้อมูล');
+                    } else {
+                        await fetchAndRenderData();
+                    }
+                 }
             }
             
-            if (e.target.classList.contains('edit-btn')) {
+            if (button.classList.contains('edit-btn')) {
                 const { data, error } = await db.from('transactions').select('*').eq('id', transactionId).single();
-                if(error) { console.error('Error fetching transaction for edit:', error); return; }
+                if(error) { 
+                    console.error('Error fetching transaction for edit:', error); 
+                    showAlert('ไม่สามารถดึงข้อมูลรายการนี้ได้');
+                    return; 
+                }
                 editTransactionId.value = data.id;
                 editAmount.value = data.amount;
                 editDate.value = data.date;
@@ -1160,7 +1363,16 @@
         editTransactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = editTransactionId.value;
-            const updatedData = { amount: parseFloat(editAmount.value), date: editDate.value, description: editDescription.value };
+             const amountValue = parseFloat(editAmount.value);
+             if (isNaN(amountValue) || amountValue <= 0) {
+                 showAlert('กรุณากรอกจำนวนเงินที่ถูกต้อง (ต้องมากกว่า 0)');
+                 return;
+             }
+            const updatedData = { 
+                amount: amountValue, 
+                date: editDate.value, 
+                description: editDescription.value 
+            };
             const { error } = await db.from('transactions').update(updatedData).eq('id', id);
             if(error) { 
                 console.error('Error updating transaction:', error); 
@@ -1174,25 +1386,30 @@
         async function handleAddCategory(type, parent_id = null) {
             const name = await showPrompt(`กรุณาใส่ชื่อหมวดหมู่${parent_id ? 'ย่อย' : 'หลัก'}ใหม่:`);
             if (!name || !currentUser) return;
-            const { error } = await db.from('categories').insert({ name, type, user_id: currentUser.id, parent_id });
+            const { error } = await db.from('categories').insert({ name: name.trim(), type, user_id: currentUser.id, parent_id });
             if (error) { 
                 console.error('Error adding category:', error); 
-                showAlert('เกิดข้อผิดพลาด'); 
+                showAlert('เกิดข้อผิดพลาด: ' + error.message); 
             } else { 
-                await fetchAndRenderData(); 
+                await fetchAndRenderData(); // Refresh category list and dropdowns
             }
         }
 
         async function handleEditCategory(id) {
-            const currentName = allCategoriesMap.get(id)?.name || '';
+            const category = allCategoriesMap.get(id);
+             if (!category) {
+                 showAlert("ไม่พบหมวดหมู่ที่ต้องการแก้ไข");
+                 return;
+             }
+            const currentName = category.name || '';
             const newName = await showPrompt('กรุณาใส่ชื่อใหม่:', currentName);
-            if (!newName || newName === currentName) return;
-            const { error } = await db.from('categories').update({ name: newName }).eq('id', id);
+            if (!newName || newName.trim() === currentName) return; // Ignore if same or empty
+            const { error } = await db.from('categories').update({ name: newName.trim() }).eq('id', id);
             if (error) { 
                 console.error('Error editing category:', error); 
-                showAlert('เกิดข้อผิดพลาด'); 
+                showAlert('เกิดข้อผิดพลาด: ' + error.message); 
             } else { 
-                await fetchAndRenderData(); 
+                await fetchAndRenderData(); // Refresh category list and dropdowns
             }
         }
 
@@ -1206,14 +1423,32 @@
                 return;
             }
 
-            const confirmed = await showConfirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${category.name}"? การกระทำนี้จะทำให้รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่"`);
+             // Check for associated transactions before deleting
+             const { data: transactions, error: checkError } = await db
+                 .from('transactions')
+                 .select('id', { count: 'exact', head: true }) // Just check if any exist
+                 .eq('category_id', id);
+
+             if (checkError) {
+                 console.error('Error checking transactions for category:', checkError);
+                 showAlert('เกิดข้อผิดพลาดในการตรวจสอบข้อมูลรายการ');
+                 return;
+             }
+
+             let confirmMessage = `คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ "${category.name}"?`;
+             if (transactions && transactions.count > 0) {
+                 confirmMessage += ` การกระทำนี้จะทำให้รายการ ${transactions.count} รายการที่เคยใช้หมวดหมู่นี้กลายเป็น "ไม่มีหมวดหมู่"`;
+             }
+
+
+            const confirmed = await showConfirm(confirmMessage);
             if (confirmed) {
                 const { error } = await db.from('categories').delete().eq('id', id);
                 if (error) { 
                     console.error('Error deleting category:', error); 
-                    showAlert('เกิดข้อผิดพลาด'); 
+                    showAlert('เกิดข้อผิดพลาด: ' + error.message); 
                 } else { 
-                    await fetchAndRenderData(); 
+                    await fetchAndRenderData(); // Refresh category list and dropdowns
                 }
             }
         }
@@ -1227,14 +1462,22 @@
                 if (!button) return;
                 const action = button.dataset.action;
                 const id = parseInt(button.dataset.id);
+                if (isNaN(id)) return; // Ensure id is a number
+
                 if (action === 'edit') handleEditCategory(id);
                 else if (action === 'delete') handleDeleteCategory(id);
                 else if (action === 'add-sub') {
-                    const parentType = allCategoriesMap.get(id)?.type;
-                    handleAddCategory(parentType, id);
+                    const parentCategory = allCategoriesMap.get(id);
+                    if (parentCategory) {
+                         handleAddCategory(parentCategory.type, id);
+                    } else {
+                         console.error("Parent category not found for adding subcategory");
+                         showAlert("เกิดข้อผิดพลาด: ไม่พบหมวดหมู่หลัก");
+                    }
                 }
             });
         });
+        
         
         [monthFilter, yearFilter].forEach(el => el.addEventListener('change', fetchAndRenderData));
 
@@ -1250,9 +1493,13 @@
 
             const year = parseInt(yearFilter.value);
             const month = parseInt(monthFilter.value);
+             // Ensure monthFilter.options exists and has elements
+             const selectedMonthText = monthFilter.options.length > 0 ? monthFilter.options[monthFilter.selectedIndex].text : '';
+             const selectedYearText = yearFilter.options.length > 0 ? yearFilter.options[yearFilter.selectedIndex].text : '';
+            
             const viewPeriod = currentView === 'monthly'
-                ? `${monthFilter.options[monthFilter.selectedIndex].text} ${yearFilter.options[yearFilter.selectedIndex].text}`
-                : `ปี ${yearFilter.options[yearFilter.selectedIndex].text}`;
+                 ? `${selectedMonthText} ${selectedYearText}`
+                 : `ปี ${selectedYearText}`;
             
             const transactions = currentView === 'monthly'
                 ? await fetchTransactions(year, month)
@@ -1337,15 +1584,33 @@
 
         // --- Initialization ---
         let isInitialized = false;
+        async function initializeApp() { // Make initializeApp async
+             if (isInitialized) {
+                 // Don't necessarily need to fetch here, let filter changes trigger it
+                 // await fetchAndRenderData(); // Re-fetch data if already initialized (e.g., after login)
+                 return;
+             };
+             populateFilters();
+             // Fetch and render data *after* filters are populated and view is set
+             // setView calls fetchAndRenderData internally
+             setView('monthly'); // Set initial view 
+             isInitialized = true;
+         }
+
         function populateFilters() {
             const now = new Date();
             const currentYear = now.getFullYear();
-            const currentMonth = now.getMonth() + 1;
+            const currentMonth = now.getMonth() + 1; // JS months are 0-11
+            
+            // Set date input to today's date in local YYYY-MM-DD format
+            const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            document.getElementById('date').value = localDate;
+
             yearFilter.innerHTML = '';
             for (let i = currentYear + 1; i >= currentYear - 5; i--) {
                 const option = document.createElement('option');
                 option.value = i;
-                option.textContent = i + 543;
+                option.textContent = i + 543; // Display Buddhist year
                 if (i === currentYear) option.selected = true;
                 yearFilter.appendChild(option);
             }
@@ -1353,20 +1618,13 @@
             const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
             months.forEach((month, index) => {
                 const option = document.createElement('option');
-                option.value = index + 1;
+                option.value = index + 1; // Month value 1-12
                 option.textContent = month;
                 if (index + 1 === currentMonth) option.selected = true;
                 monthFilter.appendChild(option);
             });
         }
-        
-        function initializeApp() {
-            if (isInitialized) return;
-            document.getElementById('date').value = new Date().toISOString().split('T')[0];
-            populateFilters();
-            setView('monthly'); 
-            isInitialized = true;
-        }
+
 
     </script>
 </body>
