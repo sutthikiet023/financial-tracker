@@ -155,10 +155,19 @@
                                 </div>
                             </fieldset>
                         </div>
-                        <div>
-                            <label for="category" class="block text-sm font-medium text-gray-700">หมวดหมู่</label>
-                            <select id="category" name="category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                        
+                        <!-- Category Dropdowns -->
+                        <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="main-category-select" class="block text-sm font-medium text-gray-700">หมวดหมู่หลัก</label>
+                                <select id="main-category-select" name="main-category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <div id="sub-category-container" class="hidden">
+                                <label for="sub-category-select" class="block text-sm font-medium text-gray-700">หมวดหมู่ย่อย</label>
+                                <select id="sub-category-select" name="sub-category" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
                         </div>
+
                         <div>
                             <label for="amount" class="block text-sm font-medium text-gray-700">จำนวนเงิน</label>
                             <input type="number" name="amount" id="amount" step="0.01" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md" placeholder="0.00" required>
@@ -468,7 +477,11 @@
 
         const transactionForm = document.getElementById('transaction-form');
         const transactionsList = document.getElementById('transactions-list');
-        const categorySelect = document.getElementById('category');
+        // const categorySelect = document.getElementById('category'); // Old
+        const mainCategorySelect = document.getElementById('main-category-select');
+        const subCategoryContainer = document.getElementById('sub-category-container');
+        const subCategorySelect = document.getElementById('sub-category-select');
+
         const typeRadios = document.querySelectorAll('input[name="type"]');
         const paymentMethodContainer = document.getElementById('payment-method-container');
         
@@ -879,29 +892,51 @@
             return data;
         }
         
-        function renderCategoryDropdown(structuredCategories, type) {
-            categorySelect.innerHTML = '<option value="">-- เลือกหมวดหมู่ --</option>';
-            // Filter and sort main categories for the dropdown
+        // --- NEW --- Render main category dropdown
+        function renderMainCategoryDropdown(structuredCategories, type) {
+            mainCategorySelect.innerHTML = '<option value="">-- เลือกหมวดหมู่หลัก --</option>';
             const categoriesForType = structuredCategories
-                .filter(c => c.type === type)
-                .sort((a, b) => a.name.localeCompare(b.name, 'th')); 
+                .filter(c => c.type === type); // Already sorted
             
             categoriesForType.forEach(mainCat => {
                 const mainOption = document.createElement('option');
                 mainOption.value = mainCat.id;
                 mainOption.textContent = mainCat.name;
-                categorySelect.appendChild(mainOption);
-                
-                // Subcategories are already sorted within structureCategories
-                mainCat.subcategories.forEach(subCat => {
-                    const subOption = document.createElement('option');
-                    subOption.value = subCat.id;
-                    subOption.textContent = `  - ${subCat.name}`; // Indent subcategories
-                    categorySelect.appendChild(subOption);
-                });
+                // Store subcategories data directly on the option
+                mainOption.dataset.subcategories = JSON.stringify(mainCat.subcategories);
+                mainCategorySelect.appendChild(mainOption);
             });
+            
+            // After rendering, clear and hide the sub-category dropdown
+            subCategorySelect.innerHTML = '';
+            subCategoryContainer.classList.add('hidden');
         }
 
+        // --- NEW --- Render sub category dropdown based on main selection
+        function renderSubCategoryDropdown() {
+            const selectedOption = mainCategorySelect.options[mainCategorySelect.selectedIndex];
+            if (!selectedOption || !selectedOption.dataset.subcategories) {
+                subCategoryContainer.classList.add('hidden');
+                return;
+            }
+
+            const subcategories = JSON.parse(selectedOption.dataset.subcategories);
+            
+            if (subcategories.length === 0) {
+                subCategoryContainer.classList.add('hidden');
+                subCategorySelect.innerHTML = ''; // Clear it
+            } else {
+                subCategorySelect.innerHTML = '<option value="">-- เลือกหมวดหมู่ย่อย (ไม่บังคับ) --</option>';
+                // Subcategories are already sorted by structureCategories
+                subcategories.forEach(subCat => {
+                    const subOption = document.createElement('option');
+                    subOption.value = subCat.id;
+                    subOption.textContent = subCat.name;
+                    subCategorySelect.appendChild(subOption);
+                });
+                subCategoryContainer.classList.remove('hidden');
+            }
+        }
         
         function categoryListItemHTML(category, isSub = false) {
              // Subcategories are already sorted by structureCategories
@@ -933,7 +968,7 @@
             expenseCategoriesList.innerHTML = expenseCats.map(c => categoryListItemHTML(c)).join('') || '<p class="text-sm text-gray-500">ไม่มีหมวดหมู่รายจ่าย</p>';
 
             const selectedType = document.querySelector('input[name="type"]:checked').value;
-            renderCategoryDropdown(structured, selectedType); // Pass the already sorted structured data
+            renderMainCategoryDropdown(structured, selectedType); // Pass the already sorted structured data
         }
 
 
@@ -1056,22 +1091,22 @@
 
                     // REMOVED INVALID COMMENTS FROM THIS INNERHTML SECTION
                     txElement.innerHTML = `
-                        <div class="flex items-center gap-4 min-w-0"> 
+                        <div class="flex items-center gap-4 min-w-0">
                             <div class="w-12 h-12 rounded-full ${isIncome ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     ${isIncome ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />'}
                                 </svg>
                             </div>
-                            <div class="flex-grow min-w-0"> 
-                                <p class="font-semibold truncate">${getCategoryFullName(tx.category_id)}</p> 
-                                <div class="flex items-center gap-2 mt-1 flex-wrap"> 
+                            <div class="flex-grow min-w-0">
+                                <p class="font-semibold truncate">${getCategoryFullName(tx.category_id)}</p>
+                                <div class="flex items-center gap-2 mt-1 flex-wrap">
                                     <p class="text-sm text-gray-500 whitespace-nowrap">${itemDateFormatted}</p>
                                     ${paymentMethodHTML}
                                 </div>
-                                <p class="text-sm text-gray-400 mt-1 break-words">${tx.description || ''}</p> 
+                                <p class="text-sm text-gray-400 mt-1 break-words">${tx.description || ''}</p>
                             </div>
                         </div>
-                        <div class="text-right ml-4 flex-shrink-0"> 
+                        <div class="text-right ml-4 flex-shrink-0">
                             <p class="font-bold text-lg ${color} inter whitespace-nowrap">${sign}฿${formatNumber(tx.amount)}</p>
                             <div class="mt-1">
                                 <button data-id="${tx.id}" class="edit-btn text-blue-500 hover:text-blue-700 text-xs mr-2">แก้ไข</button>
@@ -1258,11 +1293,23 @@
             e.preventDefault();
             if (!currentUser) return;
             const formData = new FormData(transactionForm);
-            const selectedCategory = formData.get('category');
-            if (!selectedCategory) {
-                showAlert('กรุณาเลือกหมวดหมู่');
+            
+            const selectedMainCategory = mainCategorySelect.value;
+            const selectedSubCategory = subCategorySelect.value;
+            
+            let finalCategoryId = null;
+
+            if (selectedSubCategory) { // If sub-category dropdown is visible and has a value
+                finalCategoryId = selectedSubCategory;
+            } else if (selectedMainCategory) { // Otherwise, use the main category
+                finalCategoryId = selectedMainCategory;
+            }
+
+            if (!finalCategoryId) { // Check if *any* category was selected
+                showAlert('กรุณาเลือกหมวดหมู่หลัก');
                 return;
             }
+
             const amountValue = parseFloat(formData.get('amount'));
              if (isNaN(amountValue) || amountValue <= 0) {
                  showAlert('กรุณากรอกจำนวนเงินที่ถูกต้อง (ต้องมากกว่า 0)');
@@ -1274,7 +1321,7 @@
                 description: formData.get('description'),
                 amount: amountValue,
                 type: formData.get('type'),
-                category_id: parseInt(selectedCategory), // Use the selected value
+                category_id: parseInt(finalCategoryId), // Use the final ID
                 user_id: currentUser.id,
             };
 
@@ -1287,29 +1334,21 @@
                 console.error('Error adding transaction:', error); 
                 showAlert('เกิดข้อผิดพลาดในการบันทึกข้อมูล'); 
             } else {
-                transactionForm.reset();
-                 // Reset category dropdown to default state after successful submission
-                categorySelect.value = ""; // Set to the default empty value
-                 // Re-render dropdown based on the current type selection
-                 const currentType = document.querySelector('input[name="type"]:checked').value;
-                 // We need categories data to re-render the dropdown correctly
-                 const allCats = await fetchAllCategories(); // Fetch might be redundant if fetchAndRenderData does it, but safer here
-                 const structuredCats = structureCategories(allCats);
-                 renderCategoryDropdown(structuredCats, currentType);
-
-                // Set default type back to income and hide payment method
-                document.getElementById('type-income').checked = true;
+                const currentFormDate = formData.get('date'); // Get date *before* reset
+                transactionForm.reset(); // Resets text/number fields, and radios to default (income)
+                
+                // Manually hide payment container (since radio is back to income)
                 paymentMethodContainer.classList.add('hidden');
 
-                // Keep the date input as the previously selected date or default to today
-                const currentDateValue = document.getElementById('date').value;
-                 if (!currentDateValue) {
-                     const now = new Date();
-                     const localDate = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                     document.getElementById('date').value = localDate;
-                 } else {
-                     document.getElementById('date').value = currentDateValue; // Keep existing date if user has set one
-                 }
+                // Manually re-render the main category dropdown for 'income'
+                // This also hides/clears the sub-category dropdown
+                const allCats = await fetchAllCategories(); 
+                const structuredCats = structureCategories(allCats);
+                renderMainCategoryDropdown(structuredCats, 'income');
+
+                // Restore the date
+                document.getElementById('date').value = currentFormDate; 
+                
                 await fetchAndRenderData(); // Refresh list and summaries
             }
         });
@@ -1317,7 +1356,7 @@
         typeRadios.forEach(radio => radio.addEventListener('change', async (e) => {
             const allCategories = await fetchAllCategories();
             const structured = structureCategories(allCategories);
-            renderCategoryDropdown(structured, e.target.value);
+            renderMainCategoryDropdown(structured, e.target.value); // Use new function
 
             if (e.target.value === 'expense') {
                 paymentMethodContainer.classList.remove('hidden');
@@ -1325,6 +1364,9 @@
                 paymentMethodContainer.classList.add('hidden');
             }
         }));
+
+        // --- NEW --- Add change listener to main category select
+        mainCategorySelect.addEventListener('change', renderSubCategoryDropdown);
 
         transactionsList.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
